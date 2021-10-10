@@ -24,7 +24,7 @@ impl SesstionInfo {
 }
 
 #[doc(hidden)]
-pub(crate) fn session_init() {
+pub fn session_init() {
     unsafe {
         INIT.call_once(|| {
             SESSION = Some(SesstionInfo::new());
@@ -36,7 +36,7 @@ pub(crate) fn elapsed() -> Duration {
     unsafe { SESSION.as_ref().unwrap().instant.elapsed() }
 }
 
-pub(crate) fn start_at() -> DateTime<Utc> {
+pub fn start_at() -> DateTime<Utc> {
     unsafe { SESSION.as_ref().unwrap().start_at }
 }
 
