@@ -1,4 +1,4 @@
-use std::ops::RangeBounds;
+use std::{ops::RangeBounds, time::Duration};
 
 use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
@@ -70,6 +70,11 @@ fn main() {
                         .long("count")
                         .value_name("COUNT")
                         .default_value("5"),
+                )
+                .arg(
+                    clap::Arg::with_name("delay")
+                        .long("delay")
+                        .value_name("MILLI_SECONDS"),
                 ),
         )
         .subcommand(
@@ -102,7 +107,15 @@ fn main() {
         ("client", Some(sub_m)) => {
             let host = sub_m.value_of("host").unwrap().to_string();
             let count: u16 = sub_m.value_of("count").unwrap().parse().unwrap();
-            let opt = ClientOption { host, port, count };
+            let delay = sub_m
+                .value_of("delay")
+                .map(|x| Duration::from_millis(x.parse::<u64>().unwrap()));
+            let opt = ClientOption {
+                host,
+                port,
+                count,
+                delay,
+            };
             client(opt);
         }
         ("read", Some(sub_m)) => {
@@ -154,6 +167,7 @@ struct ClientOption {
     host: String,
     port: u16,
     count: u16,
+    delay: Option<Duration>,
 }
 
 impl ClientOption {
@@ -177,6 +191,9 @@ fn client(opt: ClientOption) {
             .map_err(|e| error!("failed to send at: {}, {} ", i, e))
             .ok();
         debug!("send {}", i);
+        if let Some(delay) = &opt.delay {
+            std::thread::sleep(delay.to_owned())
+        }
     }
 }
 
