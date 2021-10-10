@@ -2,6 +2,12 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+#[macro_use]
+mod macros;
+mod session;
+
+pub use session::session_init;
+
 /// 指定可能なログレベル
 #[repr(usize)]
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
@@ -34,7 +40,7 @@ pub struct Metadata {
 
 impl Metadata {
     pub fn new(level: Level, target: String) -> Self {
-        Self{level, target}
+        Self { level, target }
     }
 
     #[inline]
@@ -59,7 +65,6 @@ pub struct Record {
     line: Option<u32>,
     // log variant
     message: String,
-
     // TODO adding
     // kv: Option<KV>,
 }
@@ -122,6 +127,27 @@ mod duration {
     }
 }
 
+#[doc(hidden)]
+pub fn __build_record<'a>(
+    level: Level,
+    target: &'a str,
+    category: &'a str,
+    message: &'a str,
+    module_path: &'static str,
+    file: &'static str,
+    line: u32,
+) -> Record {
+    let metadata = Metadata::new(level, target.into());
+    Record {
+        metadata,
+        elapsed: session::elapsed(),
+        category: category.into(),
+        message: message.into(),
+        module_path: Some(module_path.into()),
+        file: Some(file.into()),
+        line: Some(line),
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -129,27 +155,8 @@ mod tests {
 
     use crate::*;
 
-    #[allow(unused_macros)]
-    macro_rules! testlog {
-        ($level:expr, $category:expr, $message:expr) => ({
-            let metadata = Metadata{
-                level: $level,
-                target: module_path!().to_string(),
-            };
-            Record{
-                metadata,
-                elapsed: Duration::new(0, 0),
-                category: $category.to_string(),
-                module_path: Some(module_path!().to_string()),
-                file: Some(file!().to_string()),
-                line: Some(line!()),
-                message: $message.to_string(),
-            }
-        });
-    }    
-
     #[test]
-    fn test_metadata(){
+    fn test_metadata() {
         let target = "xxx";
 
         let metadata = Metadata::new(Level::Info, target.to_string());
@@ -160,7 +167,8 @@ mod tests {
 
     #[test]
     fn test_record() {
-        let record = testlog!(Level::Info, "test.category", "test_message");
+        init!();
+        let record = devlog!(Level::Info, "test.category", "test_message");
         let encoded = to_vec(&record).unwrap();
         let decoded: Record = from_slice(&encoded).unwrap();
         assert_eq!(record, decoded);
