@@ -1,4 +1,4 @@
-use std::{ops::RangeBounds, time::Duration};
+use std::time::Duration;
 
 use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
@@ -49,7 +49,7 @@ fn main() {
                 .arg(
                     clap::Arg::with_name("data_dir")
                         .short("d")
-                        .long("data_dir")
+                        .long("data-dir")
                         .value_name("DATA_DIR")
                         .default_value("tempdb"),
                 ),
@@ -83,7 +83,7 @@ fn main() {
                 .arg(
                     clap::Arg::with_name("data_dir")
                         .short("d")
-                        .long("data_dir")
+                        .long("data-dir")
                         .value_name("DATA_DIR")
                         .default_value("tempdb"),
                 )
@@ -185,7 +185,13 @@ fn client(opt: ClientOption) {
     let (mut client, _) = connect(&url).unwrap();
 
     for i in 0..opt.count {
-        let record = uplog::devlog!(uplog::Level::Info, "uplog_server.bin.client", "send");
+        let record = uplog::devlog!(
+            uplog::Level::Info,
+            "uplog_server.bin.client",
+            "send",
+            "loop",
+            i
+        );
         let buf = to_vec(&record).unwrap();
         client
             .write_message(Message::binary(buf.as_slice()))

@@ -4,9 +4,14 @@ use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod macros;
+mod kv;
 mod session;
 
-pub use {session::session_init, session::start_at};
+pub use {
+    kv::{Value, KV},
+    session::session_init,
+    session::start_at,
+};
 
 /// 指定可能なログレベル
 #[repr(usize)]
@@ -63,10 +68,8 @@ pub struct Record {
     module_path: Option<String>,
     file: Option<String>,
     line: Option<u32>,
-    // log variant
     message: String,
-    // TODO adding
-    // kv: Option<KV>,
+    kv: Option<KV>,
 }
 
 impl Record {
@@ -100,23 +103,36 @@ impl Record {
         self.line
     }
 
-    // #[inline]
-    // pub fn key_values(&self) -> Option<&KV> {
-    //     self.kv.as_ref()
-    // }
+    #[inline]
+    pub fn key_values(&self) -> Option<&KV> {
+        self.kv.as_ref()
+    }
 }
 
 impl Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{:?}] [{}] {} ({}:L{})",
+            "[{:?}] {:.4} [{}] {} ({}:L{})",
             self.level(),
+            self.elapsed.as_secs_f64(),
             self.category,
             self.message,
             self.file().unwrap_or(&"".into()),
             self.line().unwrap_or(0)
-        )
+        )?;
+        if let Some(ref kv) = self.kv {
+            write!(f, " {{")?;
+            for k in kv.keys() {
+                if let Some(v) = kv.get(k) {
+                    write!(f, "{} = \"{:?}\", ", k, v)?;
+                } else {
+                    write!(f, "{} = ?, ", k)?;
+                }
+            }
+            write!(f, "}}")?;
+        }
+        Ok(())
     }
 }
 
@@ -142,6 +158,7 @@ mod duration {
 }
 
 #[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
 pub fn __build_record<'a>(
     level: Level,
     target: &'a str,
@@ -150,6 +167,7 @@ pub fn __build_record<'a>(
     module_path: &'static str,
     file: &'static str,
     line: u32,
+    kv: Option<KV>,
 ) -> Record {
     let metadata = Metadata::new(level, target.into());
     Record {
@@ -160,6 +178,7 @@ pub fn __build_record<'a>(
         module_path: Some(module_path.into()),
         file: Some(file.into()),
         line: Some(line),
+        kv,
     }
 }
 
@@ -186,5 +205,32 @@ mod tests {
         let encoded = to_vec(&record).unwrap();
         let decoded: Record = from_slice(&encoded).unwrap();
         assert_eq!(record, decoded);
+    }
+
+    #[test]
+    fn test_record_kv() {
+        init!();
+        let record = devlog!(
+            Level::Info,
+            "test.category",
+            "test_message",
+            "u8",
+            42_u8,
+            "i64",
+            i64::MIN,
+            "property",
+            "alice"
+        );
+        let encoded = to_vec(&record).unwrap();
+        let decoded: Record = from_slice(&encoded).unwrap();
+        assert_eq!(record, decoded);
+
+        // check display format
+        let actual = format!("{}", &record);
+        let expect =
+            r#"{i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
+        assert!(actual.contains("[Info]"));
+        assert!(actual.contains("[test.category] test_message (uplog/src/lib.rs"));
+        assert!(actual.contains(expect));
     }
 }

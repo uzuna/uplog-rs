@@ -11,8 +11,6 @@ use std::{
 use chrono::{DateTime, Utc};
 use log::debug;
 
-
-
 /// ログファイルの配置を管理する
 pub struct Storage {
     /// 保存先ルート
