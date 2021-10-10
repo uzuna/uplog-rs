@@ -1,6 +1,6 @@
 #[macro_export(local_inner_macros)]
 macro_rules! devlog {
-    ($level:expr, $category:expr, $message:expr) => {{
+    ($level:expr, $category:expr, $message:expr, $kv:expr) => {
         $crate::__build_record(
             $level,
             __log_module_path!(),
@@ -9,8 +9,16 @@ macro_rules! devlog {
             __log_module_path!(),
             __log_file!(),
             __log_line!(),
+            $kv,
         )
-    }};
+    };
+    ($level:expr, $category:expr, $message:expr) => {
+        devlog!($level, $category, $message, None)
+    };
+    ($level:expr, $category:expr, $message:expr, $($k:expr, $v:expr),+) => ({
+        let kv = kv_zip!($($k, $v),*);
+        devlog!($level, $category, $message, Some(kv))
+    });
 }
 
 #[macro_export(local_inner_macros)]
@@ -45,7 +53,8 @@ macro_rules! __log_line {
     };
 }
 
-#[allow(unused_macros)]
+#[doc(hidden)]
+#[macro_export]
 macro_rules! kv_zip {
     // ({}) で囲まれているので最後に返す値が戻り値になる
     ($($k:expr, $v:expr),+) => ({
