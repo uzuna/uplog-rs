@@ -226,7 +226,11 @@ mod tests {
         assert_eq!(record, decoded);
 
         // check display format
-        let expect = r#"[Info] 0.0000 [test.category] test_message (uplog/src/lib.rs:L213) {i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
-        assert_eq!(expect, format!("{}", &record).as_str());
+        let actual = format!("{}", &record);
+        let expect =
+            r#"{i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
+        assert!(actual.contains("[Info]"));
+        assert!(actual.contains("[test.category] test_message (uplog/src/lib.rs"));
+        assert!(actual.contains(expect));
     }
 }

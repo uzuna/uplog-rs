@@ -5,8 +5,8 @@ pub type KV = BTreeMap<String, Value>;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
-    // formatによってはデータが詰められてしまうことがある
-    // Deserialize後の扱いやすさのために64bitのみで一旦実装する
+    // formatによってはデータが詰められてしまう場合がある
+    // IntについてはDeserialize後の扱いやすさのためにまずは64bitのみで実装
     I64(i64),
     U64(u64),
     F32(f32),
@@ -217,7 +217,6 @@ vec_owned_from!(f32);
 vec_owned_from!(f64);
 vec_owned_from!(String);
 vec_owned_from!(&str);
-vec_owned_from!(Vec<u8>);
 
 #[cfg(test)]
 mod tests {
