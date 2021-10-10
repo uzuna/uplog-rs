@@ -24,7 +24,7 @@ impl SesstionInfo {
 }
 
 #[doc(hidden)]
-pub fn session_init() {
+pub(crate) fn session_init() {
     unsafe {
         INIT.call_once(|| {
             SESSION = Some(SesstionInfo::new());

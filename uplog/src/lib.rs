@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 mod macros;
 mod session;
 
-pub use session::session_init;
+pub use {session::session_init, session::start_at};
 
 /// 指定可能なログレベル
 #[repr(usize)]

@@ -179,7 +179,8 @@ impl ClientOption {
 fn client(opt: ClientOption) {
     use serde_cbor::to_vec;
     use tungstenite::{connect, Message};
-    uplog::init!();
+    let timestamp = uplog::init!();
+    debug!("start at {}", timestamp);
     let url = opt.addr();
     let (mut client, _) = connect(&url).unwrap();
 
