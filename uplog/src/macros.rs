@@ -1,3 +1,4 @@
+/// build record macro for development
 #[macro_export(local_inner_macros)]
 macro_rules! devlog {
     ($level:expr, $category:expr, $message:expr, $kv:expr) => {
@@ -53,15 +54,12 @@ macro_rules! __log_line {
     };
 }
 
+/// build KV
 #[doc(hidden)]
 #[macro_export]
 macro_rules! kv_zip {
-    // ({}) で囲まれているので最後に返す値が戻り値になる
     ($($k:expr, $v:expr),+) => ({
-        // 1行出力の場合はkv交互に出すことが出来ない
-        // (println!("item: {} {} {:?}, {:?}", $category, $message, ($($k),+), ($($v),+)))
         let mut bt = $crate::KV::new();
-        // $()で入れ子関係を合わせる必要がある
         $(
             bt.insert($k.to_string(), $crate::Value::from($v));
         )*
