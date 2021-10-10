@@ -44,3 +44,18 @@ macro_rules! __log_line {
         line!()
     };
 }
+
+#[allow(unused_macros)]
+macro_rules! kv_zip {
+    // ({}) で囲まれているので最後に返す値が戻り値になる
+    ($($k:expr, $v:expr),+) => ({
+        // 1行出力の場合はkv交互に出すことが出来ない
+        // (println!("item: {} {} {:?}, {:?}", $category, $message, ($($k),+), ($($v),+)))
+        let mut bt = $crate::kv::KV::new();
+        // $()で入れ子関係を合わせる必要がある
+        $(
+            bt.insert($k.to_string(), $crate::kv::Value::from($v));
+        )*
+        bt
+    });
+}

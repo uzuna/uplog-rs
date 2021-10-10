@@ -4,9 +4,14 @@ use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod macros;
+mod kv;
 mod session;
 
-pub use {session::session_init, session::start_at};
+pub use {
+    kv::{Value, KV},
+    session::session_init,
+    session::start_at,
+};
 
 /// 指定可能なログレベル
 #[repr(usize)]
