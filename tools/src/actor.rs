@@ -160,7 +160,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                 let v: Result<Record, serde_cbor::Error> = serde_cbor::from_slice(&bin);
                 match v {
                     Ok(v) => {
-                        debug!("accept data [{}] len: {}", self.id, bin.len());
+                        debug!("accept data [{}] {}", self.id, v);
                         self.session_addr.as_ref().and_then(|r| {
                             r.do_send(SessionCommand::Record(v))
                                 .map_err(|e| error!("session write error [{}] {:?}", self.id, e))

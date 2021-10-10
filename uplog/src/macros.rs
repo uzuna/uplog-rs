@@ -60,10 +60,10 @@ macro_rules! kv_zip {
     ($($k:expr, $v:expr),+) => ({
         // 1行出力の場合はkv交互に出すことが出来ない
         // (println!("item: {} {} {:?}, {:?}", $category, $message, ($($k),+), ($($v),+)))
-        let mut bt = $crate::kv::KV::new();
+        let mut bt = $crate::KV::new();
         // $()で入れ子関係を合わせる必要がある
         $(
-            bt.insert($k.to_string(), $crate::kv::Value::from($v));
+            bt.insert($k.to_string(), $crate::Value::from($v));
         )*
         bt
     });

@@ -113,8 +113,9 @@ impl Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{:?}] [{}] {} ({}:L{})",
+            "[{:?}] {:.4} [{}] {} ({}:L{})",
             self.level(),
+            self.elapsed.as_secs_f64(),
             self.category,
             self.message,
             self.file().unwrap_or(&"".into()),
@@ -225,7 +226,7 @@ mod tests {
         assert_eq!(record, decoded);
 
         // check display format
-        let expect = r#"[Info] [test.category] test_message (uplog/src/lib.rs:L212) {i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
+        let expect = r#"[Info] 0.0000 [test.category] test_message (uplog/src/lib.rs:L213) {i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
         assert_eq!(expect, format!("{}", &record).as_str());
     }
 }
