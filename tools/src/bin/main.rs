@@ -1,8 +1,12 @@
+use std::ops::RangeBounds;
+
 use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use log::{debug, error, info};
-use uplog_tools::actor::StorageActor;
+use serde_cbor::Deserializer;
+use uplog::Record;
+use uplog_tools::{actor::StorageActor, Storage};
 use uuid::Uuid;
 
 // Handle http request
@@ -68,6 +72,18 @@ fn main() {
                         .default_value("5"),
                 ),
         )
+        .subcommand(
+            clap::SubCommand::with_name("read")
+                .about("read records")
+                .arg(
+                    clap::Arg::with_name("data_dir")
+                        .short("d")
+                        .long("data_dir")
+                        .value_name("DATA_DIR")
+                        .default_value("tempdb"),
+                )
+                .arg(clap::Arg::with_name("file").index(1).value_name("FILENAME")),
+        )
         .get_matches();
 
     let port: u16 = m.value_of("port").unwrap().parse().unwrap();
@@ -88,6 +104,12 @@ fn main() {
             let count: u16 = sub_m.value_of("count").unwrap().parse().unwrap();
             let opt = ClientOption { host, port, count };
             client(opt);
+        }
+        ("read", Some(sub_m)) => {
+            let data_dir = sub_m.value_of("data_dir").unwrap().to_string();
+            let file = sub_m.value_of("file").map(|x| x.to_string());
+            let opt = ReadOption { data_dir, file };
+            read(opt);
         }
         (_, _) => {
             println!("{}", m.usage());
@@ -156,4 +178,42 @@ fn client(opt: ClientOption) {
             .ok();
         debug!("send {}", i);
     }
+}
+
+struct ReadOption {
+    data_dir: String,
+    file: Option<String>,
+}
+
+fn read(opt: ReadOption) {
+    let storage = Storage::new(opt.data_dir).unwrap();
+    let records = storage.records().unwrap();
+
+    match opt.file {
+        Some(path) => {
+            // TODO implment into library
+            debug!("read file {}", path);
+            let iter = records
+                .into_iter()
+                .filter(|x| x.path().to_str().unwrap().contains(&path));
+            for i in iter {
+                let f = i.open().unwrap();
+                let reader = Deserializer::from_reader(f).into_iter::<Record>();
+                for r in reader {
+                    match r {
+                        Ok(r) => println!("{}", r),
+                        Err(e) => {
+                            error!("failed to read record, {}", e);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            for r in records {
+                println!("{}", r);
+            }
+        }
+    };
 }

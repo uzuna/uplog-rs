@@ -2,9 +2,16 @@ pub mod actor;
 mod writer;
 
 use std::{
+    fmt::Display,
+    fs::{File, OpenOptions},
     io,
     path::{Path, PathBuf},
 };
+
+use chrono::{DateTime, Utc};
+use log::debug;
+use serde_cbor::{Deserializer, StreamDeserializer};
+use uplog::Record;
 
 /// ログファイルの配置を管理する
 pub struct Storage {
@@ -24,6 +31,23 @@ impl Storage {
         let dirpath = self.dir.join(name);
         std::fs::create_dir_all(&dirpath).expect("failed to create storage dir");
         Session::new(dirpath)
+    }
+
+    pub fn records(&self) -> io::Result<Vec<SessionInfo>> {
+        let rd = std::fs::read_dir(&self.dir)?;
+        let vec = rd.fold(vec![], |mut a, v| {
+            if let Ok(d) = v {
+                let metadata = std::fs::metadata(d.path()).unwrap();
+                let i = SessionInfo {
+                    created_at: metadata.created().unwrap().into(),
+                    updated_at: metadata.modified().unwrap().into(),
+                    path: d.path(),
+                };
+                a.push(i);
+            };
+            a
+        });
+        Ok(vec)
     }
 }
 
@@ -50,6 +74,41 @@ impl writer::RecordWriter for Session {
 impl Drop for Session {
     fn drop(&mut self) {
         self.writer.flush()
+    }
+}
+
+pub struct SessionInfo {
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    path: PathBuf,
+}
+
+impl Display for SessionInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}, created: {}, updated: {}",
+            self.path.file_name().unwrap().to_str().unwrap(),
+            self.created_at,
+            self.updated_at
+        )
+    }
+}
+
+impl SessionInfo {
+    #[allow(dead_code)]
+    const FILENAME: &'static str = "seqdata";
+    pub fn open(&self) -> io::Result<File> {
+        debug!("SessionInfo open: {}", self.filepath().to_str().unwrap());
+        OpenOptions::new().read(true).open(self.filepath())
+    }
+
+    pub fn path(&self) -> &Path {
+        self.path.as_ref()
+    }
+
+    fn filepath(&self) -> PathBuf {
+        self.path.join(Self::FILENAME)
     }
 }
 
