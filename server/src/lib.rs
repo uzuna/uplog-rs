@@ -1,3 +1,4 @@
+pub mod actor;
 mod writer;
 
 use std::{
@@ -6,28 +7,28 @@ use std::{
 };
 
 /// ログファイルの配置を管理する
-struct Storage {
+pub struct Storage {
     /// 保存先ルート
     dir: PathBuf,
 }
 
 impl Storage {
     pub fn new<A: AsRef<Path>>(root_dir: A) -> io::Result<Self> {
-        std::fs::create_dir(&root_dir)?;
+        std::fs::create_dir_all(&root_dir)?;
         Ok(Self {
             dir: root_dir.as_ref().to_owned(),
         })
     }
 
-    fn create_session(&self, name: &str) -> io::Result<Session> {
+    pub fn create_session(&self, name: &str) -> io::Result<Session> {
         let dirpath = self.dir.join(name);
-        std::fs::create_dir(&dirpath)?;
+        std::fs::create_dir_all(&dirpath).expect("failed to create storage dir");
         Session::new(dirpath)
     }
 }
 
 /// ある一連のログの書き込みを管理する
-struct Session {
+pub struct Session {
     writer: Box<dyn writer::RecordWriter>,
 }
 
