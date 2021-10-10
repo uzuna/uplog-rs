@@ -1,7 +1,4 @@
-use std::{
-    fs::{File, OpenOptions},
-    path::Path,
-};
+use std::{fs::OpenOptions, io::BufWriter, path::Path};
 
 use uplog::Record;
 
@@ -11,9 +8,8 @@ pub(crate) trait RecordWriter {
 }
 
 /// CBORシーケンスライターはデータをただ直接に書き出す
-#[derive(Debug)]
 pub(crate) struct CBORSequenceWriter {
-    f: File,
+    writer: Box<dyn std::io::Write>,
 }
 
 impl CBORSequenceWriter {
@@ -26,14 +22,15 @@ impl CBORSequenceWriter {
             .create(true)
             .write(true)
             .open(dirpath.as_ref().join(Self::FILENAME))?;
-        Ok(Self { f })
+        let writer = Box::new(BufWriter::new(f));
+        Ok(Self { writer })
     }
 }
 
 impl RecordWriter for CBORSequenceWriter {
     fn push(&mut self, record: &Record) -> Result<(), std::io::Error> {
         use std::io::{Error, ErrorKind};
-        serde_cbor::to_writer(&mut self.f, record)
+        serde_cbor::to_writer(&mut self.writer, record)
             .map_err(|e| Error::new(ErrorKind::BrokenPipe, format!("write error {}", e)))
     }
 }

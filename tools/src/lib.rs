@@ -1,33 +1,58 @@
+pub mod actor;
 mod writer;
 
 use std::{
+    fmt::Display,
+    fs::{File, OpenOptions},
     io,
     path::{Path, PathBuf},
 };
 
+use chrono::{DateTime, Utc};
+use log::debug;
+
+
+
 /// ログファイルの配置を管理する
-struct Storage {
+pub struct Storage {
     /// 保存先ルート
     dir: PathBuf,
 }
 
 impl Storage {
     pub fn new<A: AsRef<Path>>(root_dir: A) -> io::Result<Self> {
-        std::fs::create_dir(&root_dir)?;
+        std::fs::create_dir_all(&root_dir)?;
         Ok(Self {
             dir: root_dir.as_ref().to_owned(),
         })
     }
 
-    fn create_session(&self, name: &str) -> io::Result<Session> {
+    pub fn create_session(&self, name: &str) -> io::Result<Session> {
         let dirpath = self.dir.join(name);
-        std::fs::create_dir(&dirpath)?;
+        std::fs::create_dir_all(&dirpath).expect("failed to create storage dir");
         Session::new(dirpath)
+    }
+
+    pub fn records(&self) -> io::Result<Vec<SessionInfo>> {
+        let rd = std::fs::read_dir(&self.dir)?;
+        let vec = rd.fold(vec![], |mut a, v| {
+            if let Ok(d) = v {
+                let metadata = std::fs::metadata(d.path()).unwrap();
+                let i = SessionInfo {
+                    created_at: metadata.created().unwrap().into(),
+                    updated_at: metadata.modified().unwrap().into(),
+                    path: d.path(),
+                };
+                a.push(i);
+            };
+            a
+        });
+        Ok(vec)
     }
 }
 
 /// ある一連のログの書き込みを管理する
-struct Session {
+pub struct Session {
     writer: Box<dyn writer::RecordWriter>,
 }
 
@@ -49,6 +74,41 @@ impl writer::RecordWriter for Session {
 impl Drop for Session {
     fn drop(&mut self) {
         self.writer.flush()
+    }
+}
+
+pub struct SessionInfo {
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    path: PathBuf,
+}
+
+impl Display for SessionInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}, created: {}, updated: {}",
+            self.path.file_name().unwrap().to_str().unwrap(),
+            self.created_at,
+            self.updated_at
+        )
+    }
+}
+
+impl SessionInfo {
+    #[allow(dead_code)]
+    const FILENAME: &'static str = "seqdata";
+    pub fn open(&self) -> io::Result<File> {
+        debug!("SessionInfo open: {}", self.filepath().to_str().unwrap());
+        OpenOptions::new().read(true).open(self.filepath())
+    }
+
+    pub fn path(&self) -> &Path {
+        self.path.as_ref()
+    }
+
+    fn filepath(&self) -> PathBuf {
+        self.path.join(Self::FILENAME)
     }
 }
 

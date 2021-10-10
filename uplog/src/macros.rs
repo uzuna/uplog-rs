@@ -15,9 +15,10 @@ macro_rules! devlog {
 
 #[macro_export(local_inner_macros)]
 macro_rules! init {
-    () => {
+    () => {{
         $crate::session_init();
-    };
+        $crate::start_at()
+    }};
 }
 
 #[doc(hidden)]

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 mod macros;
 mod session;
 
-pub use session::session_init;
+pub use {session::session_init, session::start_at};
 
 /// 指定可能なログレベル
 #[repr(usize)]
@@ -104,6 +104,20 @@ impl Record {
     // pub fn key_values(&self) -> Option<&KV> {
     //     self.kv.as_ref()
     // }
+}
+
+impl Display for Record {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{:?}] [{}] {} ({}:L{})",
+            self.level(),
+            self.category,
+            self.message,
+            self.file().unwrap_or(&"".into()),
+            self.line().unwrap_or(0)
+        )
+    }
 }
 
 // durationは(デ)シリアライザが実装されていないのでmoduleで指定する

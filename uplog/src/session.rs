@@ -36,7 +36,7 @@ pub(crate) fn elapsed() -> Duration {
     unsafe { SESSION.as_ref().unwrap().instant.elapsed() }
 }
 
-pub(crate) fn start_at() -> DateTime<Utc> {
+pub fn start_at() -> DateTime<Utc> {
     unsafe { SESSION.as_ref().unwrap().start_at }
 }
 
