@@ -117,11 +117,11 @@ mod tests {
     use crate::{writer::RecordWriter, *};
     use serde_cbor::Deserializer;
     use tempdir::TempDir;
-    use uplog::{devlog, init, Level, Record};
+    use uplog::{Level, Record, devinit, devlog};
 
     #[test]
     fn test_storage_session() -> std::io::Result<()> {
-        init!();
+        devinit!();
         let path = TempDir::new("storage").expect("create temp dir of storage");
         let dirpath = path.path().join("storage");
         let storage = Storage::new(&dirpath)?;

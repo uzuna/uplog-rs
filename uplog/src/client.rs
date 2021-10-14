@@ -1,23 +1,28 @@
+/// logger実体
 use std::{
     ops::DerefMut,
     sync::{
-        atomic::AtomicBool,
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use log::debug;
 use tungstenite::Message;
 use url::Url;
 
-use crate::{
-    buffer::{SwapBufWriter, SwapBuffer},
-    session_init, Log, Metadata, Record,
-};
+use crate::{Log, Metadata, Record, buffer::{SwapBufWriter, SwapBuffer}, logger::{SetLoggerError, set_boxed_logger}, session_init};
 
 #[allow(dead_code)]
 pub const WS_DEFAULT_PORT: u16 = 8040;
+
+// initialize the global logger
+pub fn try_init() -> Result<JoinHandle<()>, SetLoggerError> {
+    let (logger, handle) = Builder::default().build();
+    set_boxed_logger(Box::new(logger))?;
+    Ok(handle)
+}
 
 /// メインスレッドと別に起動してバッファーを監視し
 /// 外部のログサーバーに対してログを送信し続けるクライアント
@@ -60,6 +65,7 @@ impl WebsocketClient {
             client
                 .write_message(Message::binary(&read_buf[..]))
                 .unwrap();
+            debug!("send {}", read_buf.len());
             read_buf.clear();
             if is_finaly {
                 break;

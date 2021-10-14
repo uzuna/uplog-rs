@@ -4,7 +4,7 @@ use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use log::{debug, error, info};
-use serde_cbor::Deserializer;
+use serde_cbor::{Deserializer, to_vec};
 use uplog::Record;
 use uplog_tools::{actor::StorageActor, Storage};
 use uuid::Uuid;
@@ -25,6 +25,7 @@ async fn ws_index(
 }
 
 fn main() {
+    let ws_default_port = uplog::WS_DEFAULT_PORT.to_string();
     let m = clap::App::new(clap::crate_name!())
         .version(clap::crate_version!())
         .author(clap::crate_authors!())
@@ -35,13 +36,8 @@ fn main() {
                 .long("port")
                 .help("listen port")
                 .value_name("NUMBER")
-                .default_value("9001")
+                .default_value(ws_default_port.as_str())
                 .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("debug")
-                .long("debug")
-                .help("debug flag"),
         )
         .subcommand(
             clap::SubCommand::with_name("server")
@@ -75,6 +71,11 @@ fn main() {
                     clap::Arg::with_name("delay")
                         .long("delay")
                         .value_name("MILLI_SECONDS"),
+                )
+                .arg(
+                    clap::Arg::with_name("log_interface")
+                        .short("l")
+                        .help("use loginterface"),
                 ),
         )
         .subcommand(
@@ -116,7 +117,11 @@ fn main() {
                 count,
                 delay,
             };
-            client(opt);
+            if m.is_present("log_interface") {
+                client(opt);
+            } else {
+                client_log_interface(opt)
+            }
         }
         ("read", Some(sub_m)) => {
             let data_dir = sub_m.value_of("data_dir").unwrap().to_string();
@@ -177,9 +182,8 @@ impl ClientOption {
 }
 
 fn client(opt: ClientOption) {
-    use serde_cbor::to_vec;
     use tungstenite::{connect, Message};
-    let timestamp = uplog::init!();
+    let timestamp = uplog::devinit!();
     debug!("start at {}", timestamp);
     let url = opt.addr();
     let (mut client, _) = connect(&url).unwrap();
@@ -202,6 +206,26 @@ fn client(opt: ClientOption) {
             std::thread::sleep(delay.to_owned())
         }
     }
+}
+
+fn client_log_interface(opt: ClientOption) {
+    let handle = uplog::try_init().unwrap();
+
+    for i in 0..opt.count {
+        uplog::log!(
+            uplog::Level::Info,
+            "uplog_server.bin.client",
+            "send",
+            "loop",
+            i
+        );
+        debug!("send {}", i);
+        if let Some(delay) = &opt.delay {
+            std::thread::sleep(delay.to_owned())
+        }
+    }
+    uplog::flush();
+    handle.join().ok();
 }
 
 struct ReadOption {

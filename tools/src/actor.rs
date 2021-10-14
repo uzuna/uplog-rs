@@ -157,20 +157,22 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
     fn handle(&mut self, item: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match item {
             Ok(ws::Message::Binary(bin)) => {
-                let v: Result<Record, serde_cbor::Error> = serde_cbor::from_slice(&bin);
-                match v {
-                    Ok(v) => {
-                        debug!("accept data [{}] {}", self.id, v);
-                        self.session_addr.as_ref().and_then(|r| {
-                            r.do_send(SessionCommand::Record(v))
-                                .map_err(|e| error!("session write error [{}] {:?}", self.id, e))
-                                .ok()
-                        });
-                    }
-                    Err(e) => {
-                        warn!("format error [{}] {:?}", self.id, e);
-                    }
-                };
+                let iter = serde_cbor::Deserializer::from_slice(&bin).into_iter::<Record>();
+                for v in iter {
+                    match v {
+                        Ok(v) => {
+                            debug!("accept data [{}] {}", self.id, v);
+                            self.session_addr.as_ref().and_then(|r| {
+                                r.do_send(SessionCommand::Record(v))
+                                    .map_err(|e| error!("session write error [{}] {:?}", self.id, e))
+                                    .ok()
+                            });
+                        }
+                        Err(e) => {
+                            warn!("format error [{}] {:?}", self.id, e);
+                        }
+                    };
+                }
             }
             Ok(ws::Message::Close(reason)) => {
                 info!("close by client [{}] {:?}", self.id, reason);

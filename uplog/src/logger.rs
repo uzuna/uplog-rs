@@ -1,3 +1,4 @@
+/// crate logとintarfaceを近づける実装
 use std::{
     error,
     fmt::{self, Display},
@@ -48,3 +49,11 @@ impl Display for SetLoggerError {
     }
 }
 impl error::Error for SetLoggerError {}
+
+pub fn logger() -> &'static dyn Log {
+    unsafe { LOGGER }
+}
+
+pub fn flush() {
+    unsafe {LOGGER.flush()}
+}

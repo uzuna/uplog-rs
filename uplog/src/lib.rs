@@ -11,9 +11,9 @@ mod logger;
 mod session;
 
 pub use {
-    client::WS_DEFAULT_PORT,
+    client::{WS_DEFAULT_PORT, try_init},
     kv::{Value, KV},
-    logger::Log,
+    logger::{Log, flush},
     session::session_init,
     session::start_at,
 };
@@ -185,6 +185,34 @@ pub fn __build_record<'a>(
         line: Some(line),
         kv,
     }
+}
+
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
+pub fn __log_api<'a>(
+    level: Level,
+    target: &'a str,
+    category: &'a str,
+    message: &'a str,
+    module_path: &'static str,
+    file: &'static str,
+    line: u32,
+    kv: Option<KV>,
+) {
+    let metadata = Metadata::new(level, target.into());
+
+    logger::logger().log(
+        &Record {
+            metadata,
+            elapsed: session::elapsed(),
+            category: category.into(),
+            message: message.into(),
+            module_path: Some(module_path.into()),
+            file: Some(file.into()),
+            line: Some(line),
+            kv,
+        }
+    );
 }
 
 #[cfg(test)]
