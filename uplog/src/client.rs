@@ -27,6 +27,20 @@ pub fn try_init() -> Result<JoinHandle<()>, SetLoggerError> {
     Ok(handle)
 }
 
+// initialize the global logger with logging server host
+pub fn try_init_with_host(host: &str) -> Result<JoinHandle<()>, SetLoggerError> {
+    let (logger, handle) = Builder::default().host(host).build();
+    set_boxed_logger(Box::new(logger))?;
+    Ok(handle)
+}
+
+// initialize the global logger with builder
+pub fn try_init_with_builder(builder: Builder) -> Result<JoinHandle<()>, SetLoggerError> {
+    let (logger, handle) = builder.build();
+    set_boxed_logger(Box::new(logger))?;
+    Ok(handle)
+}
+
 /// メインスレッドと別に起動してバッファーを監視し
 /// 外部のログサーバーに対してログを送信し続けるクライアント
 #[derive(Debug)]
@@ -107,6 +121,7 @@ impl WebsocketClientBuilder {
 }
 
 /// Build the logger instance
+#[derive(Debug, Clone, Copy)]
 pub struct Builder {
     secure_connection: bool,
     host: String,
