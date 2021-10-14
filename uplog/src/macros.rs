@@ -23,7 +23,7 @@ macro_rules! devlog {
 }
 
 #[macro_export(local_inner_macros)]
-macro_rules! init {
+macro_rules! devinit {
     () => {{
         $crate::session_init();
         $crate::start_at()

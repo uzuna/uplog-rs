@@ -7,19 +7,16 @@ mod macros;
 mod buffer;
 mod client;
 mod kv;
+mod logger;
 mod session;
 
 pub use {
+    client::WS_DEFAULT_PORT,
     kv::{Value, KV},
+    logger::Log,
     session::session_init,
     session::start_at,
 };
-
-pub trait Log: Sync + Send {
-    fn enabled(&self, metadata: &Metadata) -> bool;
-    fn log(&self, record: &Record);
-    fn flush(&self);
-}
 
 /// 指定可能なログレベル
 #[repr(usize)]
@@ -208,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_record() {
-        init!();
+        devinit!();
         let record = devlog!(Level::Info, "test.category", "test_message");
         let encoded = to_vec(&record).unwrap();
         let decoded: Record = from_slice(&encoded).unwrap();
@@ -217,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_record_kv() {
-        init!();
+        devinit!();
         let record = devlog!(
             Level::Info,
             "test.category",

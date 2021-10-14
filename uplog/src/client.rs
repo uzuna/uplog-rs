@@ -1,5 +1,7 @@
 use std::{
+    ops::DerefMut,
     sync::{
+        atomic::AtomicBool,
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
@@ -11,10 +13,14 @@ use url::Url;
 
 use crate::{
     buffer::{SwapBufWriter, SwapBuffer},
-    Log, Metadata, Record,
+    session_init, Log, Metadata, Record,
 };
 
-/// Client側に持たせるもの。
+#[allow(dead_code)]
+pub const WS_DEFAULT_PORT: u16 = 8040;
+
+/// メインスレッドと別に起動してバッファーを監視し
+/// 外部のログサーバーに対してログを送信し続けるクライアント
 #[derive(Debug)]
 struct WebsocketClient {
     url: url::Url,
@@ -91,20 +97,79 @@ impl WebsocketClientBuilder {
     }
 }
 
+pub struct Builder {
+    secure_connection: bool,
+    host: String,
+    port: u16,
+    swap_buffer_size: usize,
+    swap_duration: Duration,
+}
+
+impl Builder {
+    const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
+    const DEFAULT_SWAP_DURATION_MILLIS: u64 = 500;
+
+    pub fn buffer_size(&mut self, size: usize) -> &mut Self {
+        self.swap_buffer_size = size;
+        self
+    }
+
+    pub fn duration(&mut self, duration: Duration) -> &mut Self {
+        self.swap_duration = duration;
+        self
+    }
+
+    pub fn host(&mut self, host: &str) -> &mut Self {
+        self.host = host.to_string();
+        self
+    }
+
+    pub fn port(&mut self, port: u16) -> &mut Self {
+        self.port = port;
+        self
+    }
+
+    fn url(&self) -> Url {
+        let protocol = match self.secure_connection {
+            true => "wss",
+            false => "ws",
+        };
+        let addr = format!("{}:/{}:{}", protocol, self.host, self.port);
+        Url::parse(&addr).expect("failed to parse url")
+    }
+
+    pub fn build(self) -> (LogClient, JoinHandle<()>) {
+        let url = self.url();
+        LogClient::new(url, self.swap_buffer_size, self.swap_duration)
+    }
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self {
+            secure_connection: false,
+            host: "localhost".to_string(),
+            port: WS_DEFAULT_PORT,
+            swap_buffer_size: Self::DEFAULT_BUFFER_SIZE,
+            swap_duration: Duration::from_millis(Self::DEFAULT_SWAP_DURATION_MILLIS),
+        }
+    }
+}
+
+/// メインスレッドにログ出力の関数を提供するクライアント
 pub struct LogClient {
     writer: Arc<Mutex<SwapBufWriter>>,
     close_ch: Arc<Mutex<Sender<()>>>,
 }
 
 impl LogClient {
-    const DEFAULT_BUFFER: usize = 1024 * 1024 * 2;
-    const DEFAULT_SWAP_DURATION_MILLIS: u64 = 500;
-    pub fn new(url: Url) -> (Self, JoinHandle<()>) {
+    pub fn new(url: Url, buffer_size: usize, swap_duration: Duration) -> (Self, JoinHandle<()>) {
+        session_init();
         let (sender, receiver) = channel();
-        let buf = SwapBuffer::new(Self::DEFAULT_BUFFER);
+        let buf = SwapBuffer::new(buffer_size);
         let writer = buf.get_writer();
         let mut client = WebsocketClient::builder(url, buf, receiver)
-            .tick_duration(Duration::from_millis(Self::DEFAULT_SWAP_DURATION_MILLIS))
+            .tick_duration(swap_duration)
             .build();
 
         // run sender
@@ -128,22 +193,20 @@ impl Log for LogClient {
     }
 
     fn log(&self, record: &Record) {
-        use std::io::Write;
-        let buf = serde_cbor::to_vec(record).unwrap();
         let mut writer = self.writer.lock().unwrap();
-        writer.write_all(&buf).unwrap();
-        // serde_cbor::to_writer(&mut writer, record).unwrap();
+        serde_cbor::to_writer(writer.deref_mut(), record).unwrap();
     }
 
     fn flush(&self) {
         let close = self.close_ch.lock().unwrap();
-        close.send(()).unwrap();
+        close.send(()).ok();
     }
 }
 
 impl Drop for LogClient {
     fn drop(&mut self) {
-        // self.handle.join();
+        let close = self.close_ch.lock().unwrap();
+        close.send(()).ok();
     }
 }
 
@@ -159,8 +222,10 @@ mod tests {
     use url::Url;
 
     use crate::buffer::SwapBuffer;
-    use crate::client::WebsocketClient;
+    use crate::client::{Builder, LogClient, WebsocketClient};
+    use crate::{Log, Record};
 
+    /// テスト用の受信サーバー
     fn ws_server<A: ToSocketAddrs>(addr: A) -> JoinHandle<Vec<u8>> {
         use bytes::BufMut;
         let server = TcpListener::bind(addr).unwrap();
@@ -203,6 +268,7 @@ mod tests {
         handle
     }
 
+    /// 送信スレッドのテスト
     #[test]
     fn test_websocket_client() {
         // 並行してテスト実行できるようにportをずらす
@@ -237,5 +303,40 @@ mod tests {
         handle_client.join().unwrap();
         let buf = handle.join().unwrap();
         assert_eq!(buf.len(), test_data.len() * 20);
+    }
+
+    // loggerとしてふるまいを確認
+    #[test]
+    fn test_logger() {
+        let host = "localhost";
+        let port = 9003;
+        let server_addr = format!("{}:{}", host, port);
+        let handle = ws_server(server_addr);
+
+        let test_category = "uplog.client.test";
+        let test_message = "Nkmm Drawings";
+
+        let mut builder = Builder::default();
+        builder.port(port).duration(Duration::from_millis(40));
+        let (logger, handle_client) = builder.build();
+
+        // write to logger
+        for _ in 0..20 {
+            let r = devlog!(crate::Level::Info, test_category, test_message);
+            logger.log(&r);
+            thread::sleep(Duration::from_millis(10));
+        }
+        logger.flush();
+        handle_client.join().unwrap();
+        let buf = handle.join().unwrap();
+        let iter = serde_cbor::Deserializer::from_slice(&buf).into_iter::<Record>();
+        let mut counter = 0;
+        for v in iter {
+            let v: Record = v.unwrap();
+            assert_eq!(v.message, *test_message);
+            assert_eq!(v.category, *test_category);
+            counter += 1;
+        }
+        assert_eq!(counter, 20);
     }
 }
