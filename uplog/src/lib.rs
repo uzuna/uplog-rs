@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod macros;
+mod buffer;
+mod client;
 mod kv;
 mod session;
 
@@ -12,6 +14,12 @@ pub use {
     session::session_init,
     session::start_at,
 };
+
+pub trait Log: Sync + Send {
+    fn enabled(&self, metadata: &Metadata) -> bool;
+    fn log(&self, record: &Record);
+    fn flush(&self);
+}
 
 /// 指定可能なログレベル
 #[repr(usize)]
