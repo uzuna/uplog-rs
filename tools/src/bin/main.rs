@@ -4,7 +4,7 @@ use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use log::{debug, error, info};
-use serde_cbor::{Deserializer, to_vec};
+use serde_cbor::{to_vec, Deserializer};
 use uplog::Record;
 use uplog_tools::{actor::StorageActor, Storage};
 use uuid::Uuid;
@@ -212,13 +212,7 @@ fn client_log_interface(opt: ClientOption) {
     let handle = uplog::try_init().unwrap();
 
     for i in 0..opt.count {
-        uplog::log!(
-            uplog::Level::Info,
-            "uplog_server.bin.client",
-            "send",
-            "loop",
-            i
-        );
+        uplog::error!("uplog_server.bin.client", "send", "loop", i);
         debug!("send {}", i);
         if let Some(delay) = &opt.delay {
             std::thread::sleep(delay.to_owned())

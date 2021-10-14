@@ -55,5 +55,5 @@ pub fn logger() -> &'static dyn Log {
 }
 
 pub fn flush() {
-    unsafe {LOGGER.flush()}
+    unsafe { LOGGER.flush() }
 }

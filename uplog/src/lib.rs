@@ -11,9 +11,9 @@ mod logger;
 mod session;
 
 pub use {
-    client::{WS_DEFAULT_PORT, try_init},
+    client::{try_init, WS_DEFAULT_PORT},
     kv::{Value, KV},
-    logger::{Log, flush},
+    logger::{flush, Log},
     session::session_init,
     session::start_at,
 };
@@ -201,18 +201,16 @@ pub fn __log_api<'a>(
 ) {
     let metadata = Metadata::new(level, target.into());
 
-    logger::logger().log(
-        &Record {
-            metadata,
-            elapsed: session::elapsed(),
-            category: category.into(),
-            message: message.into(),
-            module_path: Some(module_path.into()),
-            file: Some(file.into()),
-            line: Some(line),
-            kv,
-        }
-    );
+    logger::logger().log(&Record {
+        metadata,
+        elapsed: session::elapsed(),
+        category: category.into(),
+        message: message.into(),
+        module_path: Some(module_path.into()),
+        file: Some(file.into()),
+        line: Some(line),
+        kv,
+    });
 }
 
 #[cfg(test)]

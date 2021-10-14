@@ -117,7 +117,7 @@ mod tests {
     use crate::{writer::RecordWriter, *};
     use serde_cbor::Deserializer;
     use tempdir::TempDir;
-    use uplog::{Level, Record, devinit, devlog};
+    use uplog::{devinit, devlog, Level, Record};
 
     #[test]
     fn test_storage_session() -> std::io::Result<()> {

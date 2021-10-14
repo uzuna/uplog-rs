@@ -22,6 +22,56 @@ macro_rules! log {
     });
 }
 
+#[macro_export(local_inner_macros)]
+macro_rules! error {
+    ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
+        log!($crate::Level::Error, $category, $message, $($k, $v),+)
+    );
+    ($category:expr, $message:expr) => {
+        log!($crate::Level::Error, $category, $message, None)
+    };
+}
+
+#[macro_export(local_inner_macros)]
+macro_rules! warn {
+    ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
+        log!($crate::Level::Warn, $category, $message, $($k, $v),+)
+    );
+    ($category:expr, $message:expr) => {
+        log!($crate::Level::Warn, $category, $message, None)
+    };
+}
+
+#[macro_export(local_inner_macros)]
+macro_rules! info {
+    ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
+        log!($crate::Level::Info, $category, $message, $($k, $v),+)
+    );
+    ($category:expr, $message:expr) => {
+        log!($crate::Level::Info, $category, $message, None)
+    };
+}
+
+#[macro_export(local_inner_macros)]
+macro_rules! debug {
+    ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
+        log!($crate::Level::Debug, $category, $message, $($k, $v),+)
+    );
+    ($category:expr, $message:expr) => {
+        log!($crate::Level::Debug, $category, $message, None)
+    };
+}
+
+#[macro_export(local_inner_macros)]
+macro_rules! trace {
+    ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
+        log!($crate::Level::Trace, $category, $message, $($k, $v),+)
+    );
+    ($category:expr, $message:expr) => {
+        log!($crate::Level::Trace, $category, $message, None)
+    };
+}
+
 /// build record macro for development
 #[macro_export(local_inner_macros)]
 macro_rules! devlog {

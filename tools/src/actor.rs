@@ -164,7 +164,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsConn {
                             debug!("accept data [{}] {}", self.id, v);
                             self.session_addr.as_ref().and_then(|r| {
                                 r.do_send(SessionCommand::Record(v))
-                                    .map_err(|e| error!("session write error [{}] {:?}", self.id, e))
+                                    .map_err(|e| {
+                                        error!("session write error [{}] {:?}", self.id, e)
+                                    })
                                     .ok()
                             });
                         }

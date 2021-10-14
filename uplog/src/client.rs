@@ -8,11 +8,14 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
-use log::debug;
 use tungstenite::Message;
 use url::Url;
 
-use crate::{Log, Metadata, Record, buffer::{SwapBufWriter, SwapBuffer}, logger::{SetLoggerError, set_boxed_logger}, session_init};
+use crate::{
+    buffer::{SwapBufWriter, SwapBuffer},
+    logger::{set_boxed_logger, SetLoggerError},
+    session_init, Log, Metadata, Record,
+};
 
 #[allow(dead_code)]
 pub const WS_DEFAULT_PORT: u16 = 8040;
@@ -65,7 +68,7 @@ impl WebsocketClient {
             client
                 .write_message(Message::binary(&read_buf[..]))
                 .unwrap();
-            debug!("send {}", read_buf.len());
+            log::debug!("send {}", read_buf.len());
             read_buf.clear();
             if is_finaly {
                 break;
@@ -103,6 +106,7 @@ impl WebsocketClientBuilder {
     }
 }
 
+/// Build the logger instance
 pub struct Builder {
     secure_connection: bool,
     host: String,
@@ -115,21 +119,30 @@ impl Builder {
     const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
     const DEFAULT_SWAP_DURATION_MILLIS: u64 = 500;
 
+    /// Sets the swap buffer size.
+    ///
+    /// Maximum amount of buffer that can be stored until it is sent to the server
+    /// The amount actually reserved is twice this specified value (for sending and writing).
     pub fn buffer_size(&mut self, size: usize) -> &mut Self {
         self.swap_buffer_size = size;
         self
     }
 
+    /// Sets the swap suration.
+    ///
+    /// Swap the buffer every cycle specified here
     pub fn duration(&mut self, duration: Duration) -> &mut Self {
         self.swap_duration = duration;
         self
     }
 
+    /// Sets the server host name
     pub fn host(&mut self, host: &str) -> &mut Self {
         self.host = host.to_string();
         self
     }
 
+    /// Sets the server port
     pub fn port(&mut self, port: u16) -> &mut Self {
         self.port = port;
         self
@@ -218,17 +231,16 @@ impl Drop for LogClient {
 
 #[cfg(test)]
 mod tests {
-    use log::warn;
     use std::io::Write;
     use std::net::{TcpListener, ToSocketAddrs};
     use std::sync::mpsc::channel;
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
-    use tungstenite::{accept, error, Message};
+    use tungstenite::{accept, Message};
     use url::Url;
 
     use crate::buffer::SwapBuffer;
-    use crate::client::{Builder, LogClient, WebsocketClient};
+    use crate::client::{Builder, WebsocketClient};
     use crate::{Log, Record};
 
     /// テスト用の受信サーバー
@@ -249,7 +261,7 @@ mod tests {
                     Ok(x) => x,
                     // close stream
                     Err(_e) => {
-                        warn!("ws message error at {}, {:?}", &addr, _e);
+                        log::warn!("ws message error at {}, {:?}", &addr, _e);
                         break;
                     }
                 };
