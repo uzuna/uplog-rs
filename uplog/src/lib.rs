@@ -15,7 +15,7 @@ pub use {
         try_init, try_init_with_builder, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE,
         WS_DEFAULT_PORT,
     },
-    kv::{Value, KV},
+    kv::{KVBorrow, Value, ValueBorrow, KV},
     logger::{flush, Log},
     session::session_init,
     session::start_at,

@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Display};
 
 pub type KV = BTreeMap<String, Value>;
+pub type KVBorrow<'a> = BTreeMap<&'a str, ValueBorrow<'a>>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -234,6 +235,136 @@ vec_owned_from!(f64);
 vec_owned_from!(String);
 vec_owned_from!(&str);
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueBorrow<'a> {
+    Null,
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    F32(f32),
+    F64(f64),
+    Bool(bool),
+    Text(&'a str),
+    Bytes(&'a [u8]),
+    Array(Vec<ValueBorrow<'a>>),
+}
+
+impl<'a> serde::Serialize for ValueBorrow<'a> {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            ValueBorrow::I8(v) => serializer.serialize_i8(*v),
+            ValueBorrow::I16(v) => serializer.serialize_i16(*v),
+            ValueBorrow::I32(v) => serializer.serialize_i32(*v),
+            ValueBorrow::I64(v) => serializer.serialize_i64(*v),
+            ValueBorrow::U8(v) => serializer.serialize_u8(*v),
+            ValueBorrow::U16(v) => serializer.serialize_u16(*v),
+            ValueBorrow::U32(v) => serializer.serialize_u32(*v),
+            ValueBorrow::U64(v) => serializer.serialize_u64(*v),
+            ValueBorrow::F32(v) => serializer.serialize_f32(*v),
+            ValueBorrow::F64(v) => serializer.serialize_f64(*v),
+            ValueBorrow::Text(v) => serializer.serialize_str(v),
+            ValueBorrow::Bool(v) => serializer.serialize_bool(*v),
+            ValueBorrow::Bytes(v) => serializer.serialize_bytes(v),
+            ValueBorrow::Array(v) => v.serialize(serializer),
+            ValueBorrow::Null => serializer.serialize_unit(),
+        }
+    }
+}
+
+// Primitive type from
+macro_rules! impl_from_borrow {
+    ($for_type:ty) => {
+        impl From<$for_type> for ValueBorrow<'_> {
+            fn from(_: $for_type) -> Self {
+                Self::Null
+            }
+        }
+    };
+    ($variant:path, $for_type:ty) => {
+        impl From<$for_type> for ValueBorrow<'_> {
+            fn from(v: $for_type) -> Self {
+                $variant(v)
+            }
+        }
+    };
+}
+
+impl_from_borrow!(Self::I8, i8);
+impl_from_borrow!(Self::I16, i16);
+impl_from_borrow!(Self::I32, i32);
+impl_from_borrow!(Self::I64, i64);
+impl_from_borrow!(Self::U8, u8);
+impl_from_borrow!(Self::U16, u16);
+impl_from_borrow!(Self::U32, u32);
+impl_from_borrow!(Self::U64, u64);
+impl_from_borrow!(Self::F32, f32);
+impl_from_borrow!(Self::F64, f64);
+impl_from_borrow!(Self::Bool, bool);
+impl_from_borrow!(());
+
+// borrow types
+macro_rules! impl_from_heap_borrow {
+    ($variant:path, $for_type:ty) => {
+        impl<'a> From<&'a $for_type> for ValueBorrow<'a> {
+            fn from(v: &'a $for_type) -> Self {
+                $variant(v)
+            }
+        }
+    };
+}
+
+impl_from_heap_borrow!(Self::Text, str);
+impl_from_heap_borrow!(Self::Bytes, [u8]);
+impl_from_heap_borrow!(Self::Bytes, Vec<u8>);
+
+impl<'a> From<Vec<ValueBorrow<'a>>> for ValueBorrow<'a> {
+    fn from(x: Vec<ValueBorrow<'a>>) -> Self {
+        Self::Array(x)
+    }
+}
+
+// [u8]以外はArrayとして解釈する
+macro_rules! vec_owned_to_borrow_from {
+    ($for_type:ty) => {
+        impl From<Vec<$for_type>> for ValueBorrow<'_> {
+            fn from(v: Vec<$for_type>) -> Self {
+                Self::Array(v.into_iter().map(|x| x.into()).collect())
+            }
+        }
+    };
+}
+
+vec_owned_to_borrow_from!(bool);
+vec_owned_to_borrow_from!(i8);
+vec_owned_to_borrow_from!(i16);
+vec_owned_to_borrow_from!(i32);
+vec_owned_to_borrow_from!(i64);
+vec_owned_to_borrow_from!(u16);
+vec_owned_to_borrow_from!(u32);
+vec_owned_to_borrow_from!(u64);
+vec_owned_to_borrow_from!(f32);
+vec_owned_to_borrow_from!(f64);
+
+macro_rules! vec_borrow_from {
+    ($for_type:ty) => {
+        impl<'a> From<Vec<&'a $for_type>> for ValueBorrow<'a> {
+            fn from(v: Vec<&'a $for_type>) -> Self {
+                Self::Array(v.into_iter().map(|x| x.into()).collect())
+            }
+        }
+    };
+}
+vec_borrow_from!(str);
+
 #[cfg(test)]
 mod tests {
     use crate::kv::{Value, KV};
@@ -243,6 +374,45 @@ mod tests {
     #[test]
     fn test_integer() {
         let kv = kv_zip!(
+            "i8",
+            1_i8,
+            "i16",
+            42_i16,
+            "i32",
+            72_i32,
+            "i64",
+            i64::MIN,
+            "u8",
+            0_u8,
+            "u16",
+            138_u16,
+            "u32",
+            2568_u32,
+            "u64",
+            3313_u64
+        );
+
+        // serialize
+        let buf = serde_cbor::to_vec(&kv).unwrap();
+        assert_eq!(buf[0], 0xa8); // 8 length map
+        assert_eq!(buf.len(), 54); // 順不同なので長さのみ見る
+                                   // deserialize
+        let data: KV = serde_cbor::from_slice(buf.as_ref()).unwrap();
+        if let Some(Value::I64(x)) = data.get("i64") {
+            assert_eq!(*x, i64::MIN);
+        } else {
+            unreachable!();
+        }
+        if let Some(Value::U64(x)) = data.get("u64") {
+            assert_eq!(*x, 3313_u64);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_integer_borrow() {
+        let kv = kv_borrow_zip!(
             "i8",
             1_i8,
             "i16",
@@ -358,6 +528,31 @@ mod tests {
     }
 
     #[test]
+    fn test_string_borrow() {
+        let testdata_str = "static ligetime str";
+        let testdata_string = format!("owned String {}", 123);
+        let kv = kv_borrow_zip!("str", testdata_str, "String", testdata_string.as_str());
+
+        // serialize
+        let buf = serde_cbor::to_vec(&kv).unwrap();
+        assert_eq!(buf[0], 0xa2);
+        assert_eq!(buf.len(), 49);
+
+        // deserialize
+        let data: KV = serde_cbor::from_slice(buf.as_ref()).unwrap();
+        if let Some(Value::Text(x)) = data.get("str") {
+            assert_eq!(x, testdata_str);
+        } else {
+            unreachable!();
+        }
+        if let Some(Value::Text(x)) = data.get("String") {
+            assert_eq!(x, &testdata_string);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
     fn test_bytes() {
         let testdata = vec![64_u8; 512];
         let kv = kv_zip!(
@@ -367,6 +562,45 @@ mod tests {
             testdata.clone(),
             "byte_owned",
             vec![16_u8; 1024]
+        );
+
+        // serialize
+        let buf = serde_cbor::to_vec(&kv).unwrap();
+        assert_eq!(buf[0], 0xa3);
+
+        // deserialize
+        let data: KV = serde_cbor::from_slice(buf.as_ref()).unwrap();
+        if let Some(Value::Bytes(x)) = data.get("byte_slice") {
+            assert_eq!(x.len(), 32);
+            assert_eq!(x[0..32], testdata[0..32]);
+        } else {
+            unreachable!();
+        }
+        if let Some(Value::Bytes(x)) = data.get("byte_array") {
+            assert_eq!(x.len(), 512);
+            assert_eq!(x, &testdata);
+        } else {
+            unreachable!();
+        }
+        if let Some(Value::Bytes(x)) = data.get("byte_owned") {
+            assert_eq!(x.len(), 1024);
+            assert_eq!(x[0], 16);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_bytes_borrow() {
+        let testdata = vec![64_u8; 512];
+        let test_vec = vec![16_u8; 1024];
+        let kv = kv_borrow_zip!(
+            "byte_slice",
+            &testdata[0..32],
+            "byte_array",
+            &testdata,
+            "byte_owned",
+            &test_vec
         );
 
         // serialize

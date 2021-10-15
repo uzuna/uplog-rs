@@ -145,3 +145,16 @@ macro_rules! kv_zip {
         bt
     });
 }
+
+/// build KVBorrow
+#[doc(hidden)]
+#[macro_export]
+macro_rules! kv_borrow_zip {
+    ($($k:expr, $v:expr),+) => ({
+        let mut bt = $crate::KVBorrow::new();
+        $(
+            bt.insert($k, $crate::ValueBorrow::from($v));
+        )*
+        bt
+    });
+}

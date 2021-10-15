@@ -27,11 +27,11 @@ pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 ///
 /// ```
 /// /// initialize log
-/// uplog::try_init.unwrap();
+/// uplog::try_init().unwrap();
 ///
-/// /// your program ///
+/// // your program...
 ///
-/// // MUST call finally
+/// // Force recommend call finally flush()
 /// uplog::flush();
 /// ```
 pub fn try_init() -> Result<(), SetLoggerError> {
