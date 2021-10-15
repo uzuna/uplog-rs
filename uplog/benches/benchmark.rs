@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use fake::{Dummy, Fake, Faker};
-use uplog::{devlog, session_init};
+use uplog::{devlog, devlog_encode, session_init};
 
 #[derive(Debug, Dummy)]
 pub struct DummeData {
@@ -16,6 +16,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let largedata = vec![64_u8; 1024 * 1024 * 500];
 
     c.bench_function("generate log short data 1000", |b| {
+        let mut buf = [0_u8; 1024];
         b.iter(|| {
             for v in &testdata {
                 let r = devlog!(
@@ -29,13 +30,35 @@ fn criterion_benchmark(c: &mut Criterion) {
                     "paid",
                     v.paid
                 );
-                let buf = serde_cbor::to_vec(&r).unwrap();
+                serde_cbor::to_writer(&mut buf[..], &r).unwrap();
+                assert!(!buf.is_empty());
+            }
+        })
+    });
+
+    c.bench_function("generate log borrow short data 1000", |b| {
+        let mut buf = [0_u8; 1024];
+        b.iter(|| {
+            for v in &testdata {
+                devlog_encode!(
+                    &mut buf[..],
+                    uplog::Level::Info,
+                    "uplpg::benches",
+                    "short log",
+                    "order_id",
+                    v.order_id,
+                    "customer",
+                    v.customer.as_str(),
+                    "paid",
+                    v.paid
+                );
                 assert!(!buf.is_empty());
             }
         })
     });
 
     c.bench_function("generate log 500KB data", |b| {
+        let mut buf = vec![0_u8; 1024 * 1024 * 501];
         b.iter(|| {
             let r = devlog!(
                 uplog::Level::Info,
@@ -46,7 +69,24 @@ fn criterion_benchmark(c: &mut Criterion) {
                 "data",
                 &largedata[..]
             );
-            let buf = serde_cbor::to_vec(&r).unwrap();
+            serde_cbor::to_writer(&mut buf, &r).unwrap();
+            assert!(!buf.is_empty());
+        })
+    });
+
+    c.bench_function("generate log borrow 500KB data", |b| {
+        let mut buf = vec![0_u8; 1024 * 1024 * 501];
+        b.iter(|| {
+            devlog_encode!(
+                &mut buf,
+                uplog::Level::Info,
+                "uplpg::benches",
+                "large data",
+                "type",
+                "dummy/bynary",
+                "data",
+                &largedata[..]
+            );
             assert!(!buf.is_empty());
         })
     });

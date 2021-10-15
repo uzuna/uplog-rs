@@ -101,6 +101,31 @@ macro_rules! devlog {
     });
 }
 
+/// build record macro for development
+#[macro_export(local_inner_macros)]
+macro_rules! devlog_encode {
+    ($buf:expr, $level:expr, $category:expr, $message:expr, $kv:expr) => {
+        $crate::__encode_log(
+            $level,
+            __log_module_path!(),
+            $category,
+            $message,
+            __log_module_path!(),
+            __log_file!(),
+            __log_line!(),
+            $kv,
+            $buf,
+        )
+    };
+    ($buf:expr, $level:expr, $category:expr, $message:expr) => {
+        devlog_encode!($buf, $level, $category, $message, None)
+    };
+    ($buf:expr, $level:expr, $category:expr, $message:expr, $($k:expr, $v:expr),+) => ({
+        let kv = kv_borrow_zip!($($k, $v),*);
+        devlog_encode!($buf, $level, $category, $message, Some(kv))
+    });
+}
+
 #[macro_export(local_inner_macros)]
 macro_rules! devinit {
     () => {{
