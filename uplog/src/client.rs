@@ -14,7 +14,7 @@ use url::Url;
 use crate::{
     buffer::{SwapBufWriter, SwapBuffer},
     logger::{set_boxed_logger, SetLoggerError},
-    session_init, Log, Metadata, Record,
+    session_init, Log, MetadataBorrow, RecordBorrow,
 };
 
 #[allow(dead_code)]
@@ -27,11 +27,11 @@ pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 ///
 /// ```
 /// /// initialize log
-/// uplog::try_init.unwrap();
+/// uplog::try_init().unwrap();
 ///
-/// /// your program ///
+/// // your program...
 ///
-/// // MUST call finally
+/// // Force recommend call finally flush()
 /// uplog::flush();
 /// ```
 pub fn try_init() -> Result<(), SetLoggerError> {
@@ -249,11 +249,11 @@ impl LogClient {
 }
 
 impl Log for LogClient {
-    fn enabled(&self, _metadata: &Metadata) -> bool {
+    fn enabled(&self, _metadata: &MetadataBorrow) -> bool {
         true
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &RecordBorrow) {
         let mut writer = self.writer.lock().unwrap();
         serde_cbor::to_writer(writer.deref_mut(), record).unwrap();
     }
@@ -282,8 +282,7 @@ mod tests {
     use url::Url;
 
     use crate::buffer::SwapBuffer;
-    use crate::client::{Builder, WebsocketClient};
-    use crate::{Log, Record};
+    use crate::client::WebsocketClient;
 
     /// テスト用の受信サーバー
     fn ws_server<A: ToSocketAddrs>(addr: A) -> JoinHandle<Vec<u8>> {
@@ -363,40 +362,5 @@ mod tests {
         handle_client.join().unwrap();
         let buf = handle.join().unwrap();
         assert_eq!(buf.len(), test_data.len() * 20);
-    }
-
-    // loggerとしてふるまいを確認
-    #[test]
-    fn test_logger() {
-        let host = "localhost";
-        let port = 9003;
-        let server_addr = format!("{}:{}", host, port);
-        let handle = ws_server(server_addr);
-
-        let test_category = "uplog.client.test";
-        let test_message = "Nkmm Drawings";
-
-        let mut builder = Builder::default();
-        builder.port(port).duration(Duration::from_millis(40));
-        let (logger, handle_client) = builder.build();
-
-        // write to logger
-        for _ in 0..20 {
-            let r = devlog!(crate::Level::Info, test_category, test_message);
-            logger.log(&r);
-            thread::sleep(Duration::from_millis(10));
-        }
-        logger.flush();
-        handle_client.join().unwrap();
-        let buf = handle.join().unwrap();
-        let iter = serde_cbor::Deserializer::from_slice(&buf).into_iter::<Record>();
-        let mut counter = 0;
-        for v in iter {
-            let v: Record = v.unwrap();
-            assert_eq!(v.message, *test_message);
-            assert_eq!(v.category, *test_category);
-            counter += 1;
-        }
-        assert_eq!(counter, 20);
     }
 }

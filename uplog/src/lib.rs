@@ -15,7 +15,7 @@ pub use {
         try_init, try_init_with_builder, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE,
         WS_DEFAULT_PORT,
     },
-    kv::{Value, KV},
+    kv::{KVBorrow, Value, ValueBorrow, KV},
     logger::{flush, Log},
     session::session_init,
     session::start_at,
@@ -69,15 +69,15 @@ impl Metadata {
 /// logクレートと対応 ログ記録単位
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Record {
-    metadata: Metadata,
+    pub metadata: Metadata,
     #[serde(with = "duration")]
-    elapsed: Duration,
-    category: String,
-    module_path: Option<String>,
-    file: Option<String>,
-    line: Option<u32>,
-    message: String,
-    kv: Option<KV>,
+    pub elapsed: Duration,
+    pub category: String,
+    pub module_path: Option<String>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
+    pub message: String,
+    pub kv: Option<KV>,
 }
 
 impl Record {
@@ -144,6 +144,101 @@ impl Display for Record {
     }
 }
 
+/// 借用型のメタデータ ログ生成に使う
+/// 初期化時に設定する情報
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+pub struct MetadataBorrow<'a> {
+    level: Level,
+    target: &'a str,
+}
+
+impl<'a> MetadataBorrow<'a> {
+    #[inline]
+    pub fn new(level: Level, target: &'a str) -> Self {
+        Self { target, level }
+    }
+
+    #[inline]
+    pub fn default() -> Self {
+        Self {
+            level: Level::Info,
+            target: "",
+        }
+    }
+
+    #[inline]
+    pub fn level(&self) -> Level {
+        self.level
+    }
+    #[inline]
+    pub fn target(&self) -> &'a str {
+        self.target
+    }
+}
+
+impl Default for MetadataBorrow<'_> {
+    fn default() -> Self {
+        Self {
+            level: Level::Info,
+            target: "",
+        }
+    }
+}
+
+/// 借用型のログデータ ログ生成に使う
+///
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct RecordBorrow<'a> {
+    metadata: MetadataBorrow<'a>,
+    // log detail
+    #[serde(with = "duration")]
+    elapsed: Duration,
+    category: &'a str,
+    module_path: Option<&'a str>,
+    file: Option<&'a str>,
+    line: Option<u32>,
+    // log variant
+    message: &'a str,
+    kv: Option<KVBorrow<'a>>,
+}
+
+impl<'a> RecordBorrow<'a> {
+    #[inline]
+    pub fn metadata(&self) -> &MetadataBorrow<'a> {
+        &self.metadata
+    }
+
+    #[inline]
+    pub fn level(&self) -> Level {
+        self.metadata.level()
+    }
+
+    #[inline]
+    pub fn target(&self) -> &'a str {
+        self.metadata.target()
+    }
+
+    #[inline]
+    pub fn module_path(&self) -> Option<&'a str> {
+        self.module_path
+    }
+
+    #[inline]
+    pub fn file(&self) -> Option<&'a str> {
+        self.file
+    }
+
+    #[inline]
+    pub fn line(&self) -> Option<u32> {
+        self.line
+    }
+
+    #[inline]
+    pub fn key_values(&self) -> Option<&'a KVBorrow> {
+        self.kv.as_ref()
+    }
+}
+
 // durationは(デ)シリアライザが実装されていないのでmoduleで指定する
 mod duration {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -192,6 +287,33 @@ pub fn __build_record<'a>(
 
 #[doc(hidden)]
 #[allow(clippy::too_many_arguments)]
+pub fn __encode_log<'a>(
+    level: Level,
+    target: &'a str,
+    category: &'a str,
+    message: &'a str,
+    module_path: &'static str,
+    file: &'static str,
+    line: u32,
+    kv: Option<KVBorrow>,
+    buf: &mut [u8],
+) {
+    let metadata = MetadataBorrow::new(level, target);
+    let r = RecordBorrow {
+        metadata,
+        elapsed: session::elapsed(),
+        category,
+        message,
+        module_path: Some(module_path),
+        file: Some(file),
+        line: Some(line),
+        kv,
+    };
+    serde_cbor::to_writer(buf, &r).unwrap();
+}
+
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
 pub fn __log_api<'a>(
     level: Level,
     target: &'a str,
@@ -200,17 +322,17 @@ pub fn __log_api<'a>(
     module_path: &'static str,
     file: &'static str,
     line: u32,
-    kv: Option<KV>,
+    kv: Option<KVBorrow>,
 ) {
-    let metadata = Metadata::new(level, target.into());
+    let metadata = MetadataBorrow::new(level, target);
 
-    logger::logger().log(&Record {
+    logger::logger().log(&RecordBorrow {
         metadata,
         elapsed: session::elapsed(),
-        category: category.into(),
-        message: message.into(),
-        module_path: Some(module_path.into()),
-        file: Some(file.into()),
+        category,
+        message,
+        module_path: Some(module_path),
+        file: Some(file),
         line: Some(line),
         kv,
     });
