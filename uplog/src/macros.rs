@@ -17,7 +17,7 @@ macro_rules! log {
         log!($level, $category, $message, None)
     };
     ($level:expr, $category:expr, $message:expr, $($k:expr, $v:expr),+) => ({
-        let kv = kv_zip!($($k, $v),*);
+        let kv = kv_borrow_zip!($($k, $v),*);
         log!($level, $category, $message, Some(kv))
     });
 }

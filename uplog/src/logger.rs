@@ -6,22 +6,22 @@ use std::{
     thread::JoinHandle,
 };
 
-use crate::{Metadata, Record};
+use crate::{MetadataBorrow, RecordBorrow};
 
 pub trait Log: Sync + Send {
-    fn enabled(&self, metadata: &Metadata) -> bool;
-    fn log(&self, record: &Record);
+    fn enabled(&self, metadata: &MetadataBorrow) -> bool;
+    fn log(&self, record: &RecordBorrow);
     fn flush(&self);
 }
 
 struct NopLogger;
 
 impl Log for NopLogger {
-    fn enabled(&self, _: &Metadata) -> bool {
+    fn enabled(&self, _: &MetadataBorrow) -> bool {
         false
     }
 
-    fn log(&self, _: &Record) {}
+    fn log(&self, _: &RecordBorrow) {}
     fn flush(&self) {}
 }
 

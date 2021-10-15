@@ -69,15 +69,15 @@ impl Metadata {
 /// logクレートと対応 ログ記録単位
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Record {
-    metadata: Metadata,
+    pub metadata: Metadata,
     #[serde(with = "duration")]
-    elapsed: Duration,
-    category: String,
-    module_path: Option<String>,
-    file: Option<String>,
-    line: Option<u32>,
-    message: String,
-    kv: Option<KV>,
+    pub elapsed: Duration,
+    pub category: String,
+    pub module_path: Option<String>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
+    pub message: String,
+    pub kv: Option<KV>,
 }
 
 impl Record {
@@ -322,47 +322,21 @@ pub fn __log_api<'a>(
     module_path: &'static str,
     file: &'static str,
     line: u32,
-    kv: Option<KV>,
+    kv: Option<KVBorrow>,
 ) {
-    let metadata = Metadata::new(level, target.into());
+    let metadata = MetadataBorrow::new(level, target);
 
-    logger::logger().log(&Record {
+    logger::logger().log(&RecordBorrow {
         metadata,
         elapsed: session::elapsed(),
-        category: category.into(),
-        message: message.into(),
-        module_path: Some(module_path.into()),
-        file: Some(file.into()),
+        category,
+        message,
+        module_path: Some(module_path),
+        file: Some(file),
         line: Some(line),
         kv,
     });
 }
-
-// #[doc(hidden)]
-// #[allow(clippy::too_many_arguments)]
-// pub fn __log_api_borrow<'a>(
-//     level: Level,
-//     target: &'a str,
-//     category: &'a str,
-//     message: &'a str,
-//     module_path: &'static str,
-//     file: &'static str,
-//     line: u32,
-//     kv: Option<KVBorrow>,
-// ) {
-//     let metadata = MetadataBorrow::new(level, target.into());
-
-//     logger::logger().log(&RecordBorrow {
-//         metadata,
-//         elapsed: session::elapsed(),
-//         category: category.into(),
-//         message: message.into(),
-//         module_path: Some(module_path.into()),
-//         file: Some(file.into()),
-//         line: Some(line),
-//         kv,
-//     });
-// }
 
 #[cfg(test)]
 mod tests {

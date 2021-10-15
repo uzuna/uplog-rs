@@ -25,3 +25,8 @@ serde_cbor = "0.11.1"
 [[bench]]
 name = "benchmark"
 harness = false
+
+[[test]]
+name = "macros"
+path = "tests/src/lib.rs"
+harness = false
