@@ -133,7 +133,7 @@ impl Display for Record {
             write!(f, " {{")?;
             for k in kv.keys() {
                 if let Some(v) = kv.get(k) {
-                    write!(f, "{} = \"{:?}\", ", k, v)?;
+                    write!(f, "{} = {}, ", k, v)?;
                 } else {
                     write!(f, "{} = ?, ", k)?;
                 }
@@ -261,8 +261,7 @@ mod tests {
 
         // check display format
         let actual = format!("{}", &record);
-        let expect =
-            r#"{i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
+        let expect = r#"{i64 = -9223372036854775808, property = "alice", u8 = 42, }"#;
         assert!(actual.contains("[Info]"));
         assert!(actual.contains("[test.category] test_message (uplog/src/lib.rs"));
         assert!(actual.contains(expect));
