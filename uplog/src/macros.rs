@@ -22,6 +22,7 @@ macro_rules! log {
     });
 }
 
+/// error log
 #[macro_export(local_inner_macros)]
 macro_rules! error {
     ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
@@ -32,6 +33,7 @@ macro_rules! error {
     };
 }
 
+/// warn log
 #[macro_export(local_inner_macros)]
 macro_rules! warn {
     ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
@@ -42,6 +44,7 @@ macro_rules! warn {
     };
 }
 
+/// info log
 #[macro_export(local_inner_macros)]
 macro_rules! info {
     ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
@@ -52,6 +55,7 @@ macro_rules! info {
     };
 }
 
+/// debug log
 #[macro_export(local_inner_macros)]
 macro_rules! debug {
     ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (
@@ -62,6 +66,7 @@ macro_rules! debug {
     };
 }
 
+/// trace log
 #[macro_export(local_inner_macros)]
 macro_rules! trace {
     ($category:expr, $message:expr, $($k:expr, $v:expr),+) => (

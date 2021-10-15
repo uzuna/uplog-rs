@@ -22,21 +22,51 @@ pub const WS_DEFAULT_PORT: u16 = 8040;
 #[allow(dead_code)]
 pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 
-// initialize the global logger
+/// initialize the global logger
+/// # Example
+///
+/// ```
+/// /// initialize log
+/// uplog::try_init.unwrap();
+///
+/// /// your program ///
+///
+/// // MUST call finally
+/// uplog::flush();
+/// ```
 pub fn try_init() -> Result<(), SetLoggerError> {
     let (logger, handle) = Builder::default().build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
 }
 
-// initialize the global logger with logging server host
+/// initialize the global logger with logging server host
+///
+/// # Example
+///
+/// ```
+/// uplog::try_init_with_host("localhost").unwrap();
+/// ```
 pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
     let (logger, handle) = Builder::default().host(host).build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
 }
 
-// initialize the global logger with builder
+/// initialize the global logger with builder
+///
+/// # Example
+///
+/// ```
+/// use std::time::Duration;
+///
+/// let mut builder = uplog::Builder::default();
+/// builder.buffer_size(1024)
+///     .host("localhost")
+///     .port(8080)
+///     .duration(Duration::from_millis(1000));
+/// uplog::try_init_with_builder(builder).unwrap();
+/// ```
 pub fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
     let (logger, handle) = builder.build();
     set_boxed_logger(Box::new(logger), handle)?;

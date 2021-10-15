@@ -74,14 +74,14 @@ pub fn logger() -> &'static dyn Log {
     unsafe { LOGGER }
 }
 
+/// flush swapbuffer and closing sender thread
+///
+/// It is highly recommended to call it before the end of the program
+/// to completely send the data in the buffer.
 pub fn flush() {
     unsafe {
         LOGGER.flush();
         let glocal_handle = HANDLE.get_mut();
         glocal_handle.take().unwrap().join().ok();
-        // match glocal_handle {
-        //     Some(handle) => {handle.join().ok();}
-        //     _ => {},
-        // };
     }
 }
