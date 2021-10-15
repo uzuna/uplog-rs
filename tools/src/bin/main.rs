@@ -15,12 +15,12 @@ async fn ws_index(
     stream: web::Payload,
     srv: web::Data<Addr<StorageActor>>,
 ) -> Result<HttpResponse, Error> {
-    debug!("{:?}", req);
-    let res = ws::start(
-        uplog_tools::actor::WsConn::new(Uuid::new_v4(), srv.get_ref().clone().recipient()),
-        &req,
-        stream,
-    )?;
+    let actor = uplog_tools::actor::WsConn::new(Uuid::new_v4(), srv.get_ref().clone().recipient());
+    let mut res = ws::handshake(&req)?;
+    // デフォルトでは64KBのペイロードのため拡張する
+    let codec = actix_http::ws::Codec::new().max_size(uplog::DEFAULT_BUFFER_SIZE);
+    let out_stream = ws::WebsocketContext::with_codec(actor, stream, codec);
+    let res = res.streaming(out_stream);
     Ok(res)
 }
 
@@ -229,7 +229,7 @@ struct ReadOption {
 
 fn read(opt: ReadOption) {
     let storage = Storage::new(opt.data_dir).unwrap();
-    let records = storage.records().unwrap();
+    let mut records = storage.records().unwrap();
 
     match opt.file {
         Some(path) => {
@@ -253,6 +253,7 @@ fn read(opt: ReadOption) {
             }
         }
         None => {
+            records.sort_by(|a, b| a.created_at().cmp(b.created_at()));
             for r in records {
                 println!("{}", r);
             }

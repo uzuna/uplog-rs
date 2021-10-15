@@ -105,6 +105,10 @@ impl SessionInfo {
         self.path.as_ref()
     }
 
+    pub fn created_at(&self) -> &DateTime<Utc> {
+        &self.created_at
+    }
+
     fn filepath(&self) -> PathBuf {
         self.path.join(Self::FILENAME)
     }

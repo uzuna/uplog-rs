@@ -19,6 +19,8 @@ use crate::{
 
 #[allow(dead_code)]
 pub const WS_DEFAULT_PORT: u16 = 8040;
+#[allow(dead_code)]
+pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 
 // initialize the global logger
 pub fn try_init() -> Result<JoinHandle<()>, SetLoggerError> {
@@ -52,10 +54,6 @@ struct WebsocketClient {
 }
 
 impl WebsocketClient {
-    fn new(url: url::Url, buf: SwapBuffer, finish_receiver: Receiver<()>) -> Self {
-        Self::builder(url, buf, finish_receiver).build()
-    }
-
     fn builder(
         url: url::Url,
         buf: SwapBuffer,
@@ -122,16 +120,15 @@ impl WebsocketClientBuilder {
 
 /// Build the logger instance
 #[derive(Debug, Clone, Copy)]
-pub struct Builder {
+pub struct Builder<'b> {
     secure_connection: bool,
-    host: String,
+    host: &'b str,
     port: u16,
     swap_buffer_size: usize,
     swap_duration: Duration,
 }
 
-impl Builder {
-    const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
+impl<'b> Builder<'b> {
     const DEFAULT_SWAP_DURATION_MILLIS: u64 = 500;
 
     /// Sets the swap buffer size.
@@ -152,8 +149,8 @@ impl Builder {
     }
 
     /// Sets the server host name
-    pub fn host(&mut self, host: &str) -> &mut Self {
-        self.host = host.to_string();
+    pub fn host(&mut self, host: &'b str) -> &mut Self {
+        self.host = host;
         self
     }
 
@@ -178,13 +175,13 @@ impl Builder {
     }
 }
 
-impl Default for Builder {
+impl<'b> Default for Builder<'b> {
     fn default() -> Self {
         Self {
             secure_connection: false,
-            host: "localhost".to_string(),
+            host: "localhost",
             port: WS_DEFAULT_PORT,
-            swap_buffer_size: Self::DEFAULT_BUFFER_SIZE,
+            swap_buffer_size: DEFAULT_BUFFER_SIZE,
             swap_duration: Duration::from_millis(Self::DEFAULT_SWAP_DURATION_MILLIS),
         }
     }

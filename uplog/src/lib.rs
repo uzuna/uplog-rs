@@ -11,7 +11,10 @@ mod logger;
 mod session;
 
 pub use {
-    client::{try_init, try_init_with_builder, try_init_with_host, Builder, WS_DEFAULT_PORT},
+    client::{
+        try_init, try_init_with_builder, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE,
+        WS_DEFAULT_PORT,
+    },
     kv::{Value, KV},
     logger::{flush, Log},
     session::session_init,
