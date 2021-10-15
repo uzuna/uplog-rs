@@ -23,24 +23,24 @@ pub const WS_DEFAULT_PORT: u16 = 8040;
 pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 
 // initialize the global logger
-pub fn try_init() -> Result<JoinHandle<()>, SetLoggerError> {
+pub fn try_init() -> Result<(), SetLoggerError> {
     let (logger, handle) = Builder::default().build();
-    set_boxed_logger(Box::new(logger))?;
-    Ok(handle)
+    set_boxed_logger(Box::new(logger), handle)?;
+    Ok(())
 }
 
 // initialize the global logger with logging server host
-pub fn try_init_with_host(host: &str) -> Result<JoinHandle<()>, SetLoggerError> {
+pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
     let (logger, handle) = Builder::default().host(host).build();
-    set_boxed_logger(Box::new(logger))?;
-    Ok(handle)
+    set_boxed_logger(Box::new(logger), handle)?;
+    Ok(())
 }
 
 // initialize the global logger with builder
-pub fn try_init_with_builder(builder: Builder) -> Result<JoinHandle<()>, SetLoggerError> {
+pub fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
     let (logger, handle) = builder.build();
-    set_boxed_logger(Box::new(logger))?;
-    Ok(handle)
+    set_boxed_logger(Box::new(logger), handle)?;
+    Ok(())
 }
 
 /// メインスレッドと別に起動してバッファーを監視し

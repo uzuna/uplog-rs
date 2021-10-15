@@ -209,7 +209,7 @@ fn client(opt: ClientOption) {
 }
 
 fn client_log_interface(opt: ClientOption) {
-    let handle = uplog::try_init().unwrap();
+    uplog::try_init().unwrap();
 
     for i in 0..opt.count {
         uplog::error!("uplog_server.bin.client", "send", "loop", i);
@@ -219,7 +219,6 @@ fn client_log_interface(opt: ClientOption) {
         }
     }
     uplog::flush();
-    handle.join().ok();
 }
 
 struct ReadOption {

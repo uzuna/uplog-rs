@@ -1,7 +1,9 @@
 /// crate logとintarfaceを近づける実装
 use std::{
+    cell::Cell,
     error,
     fmt::{self, Display},
+    thread::JoinHandle,
 };
 
 use crate::{Metadata, Record};
@@ -25,8 +27,13 @@ impl Log for NopLogger {
 
 // global logger
 static mut LOGGER: &dyn Log = &NopLogger;
+static mut HANDLE: Cell<Option<JoinHandle<()>>> = Cell::new(None);
 
-pub fn set_boxed_logger(logger: Box<dyn Log>) -> Result<(), SetLoggerError> {
+pub fn set_boxed_logger(
+    logger: Box<dyn Log>,
+    handle: JoinHandle<()>,
+) -> Result<(), SetLoggerError> {
+    set_therad_handle(handle)?;
     set_logger_inner(|| Box::leak(logger))
 }
 
@@ -38,6 +45,19 @@ where
         LOGGER = make_logger();
     }
     Ok(())
+}
+
+pub(crate) fn set_therad_handle(handle: JoinHandle<()>) -> Result<(), SetLoggerError> {
+    unsafe {
+        let glocal_handle = HANDLE.get_mut();
+        match glocal_handle {
+            Some(_) => Err(SetLoggerError),
+            None => {
+                *glocal_handle = Some(handle);
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -55,5 +75,13 @@ pub fn logger() -> &'static dyn Log {
 }
 
 pub fn flush() {
-    unsafe { LOGGER.flush() }
+    unsafe {
+        LOGGER.flush();
+        let glocal_handle = HANDLE.get_mut();
+        glocal_handle.take().unwrap().join().ok();
+        // match glocal_handle {
+        //     Some(handle) => {handle.join().ok();}
+        //     _ => {},
+        // };
+    }
 }
