@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 pub type KV = BTreeMap<String, Value>;
 
@@ -15,6 +15,22 @@ pub enum Value {
     Text(String),
     Bytes(Vec<u8>),
     Array(Vec<Value>),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Null => write!(f, "null"),
+            Value::I64(x) => write!(f, "{}", x),
+            Value::U64(x) => write!(f, "{}", x),
+            Value::F32(x) => write!(f, "{:.6}", x),
+            Value::F64(x) => write!(f, "{:.6}", x),
+            Value::Bool(x) => write!(f, "{}", x),
+            Value::Text(x) => write!(f, "\"{}\"", x),
+            Value::Bytes(x) => write!(f, "bytes({})", x.len()),
+            Value::Array(x) => write!(f, "vec({}, len={})", x[0], x.len()),
+        }
+    }
 }
 
 impl serde::Serialize for Value {

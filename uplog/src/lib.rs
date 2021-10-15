@@ -4,11 +4,19 @@ use serde::{Deserialize, Serialize};
 
 #[macro_use]
 mod macros;
+mod buffer;
+mod client;
 mod kv;
+mod logger;
 mod session;
 
 pub use {
+    client::{
+        try_init, try_init_with_builder, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE,
+        WS_DEFAULT_PORT,
+    },
     kv::{Value, KV},
+    logger::{flush, Log},
     session::session_init,
     session::start_at,
 };
@@ -125,7 +133,7 @@ impl Display for Record {
             write!(f, " {{")?;
             for k in kv.keys() {
                 if let Some(v) = kv.get(k) {
-                    write!(f, "{} = \"{:?}\", ", k, v)?;
+                    write!(f, "{} = {}, ", k, v)?;
                 } else {
                     write!(f, "{} = ?, ", k)?;
                 }
@@ -182,6 +190,32 @@ pub fn __build_record<'a>(
     }
 }
 
+#[doc(hidden)]
+#[allow(clippy::too_many_arguments)]
+pub fn __log_api<'a>(
+    level: Level,
+    target: &'a str,
+    category: &'a str,
+    message: &'a str,
+    module_path: &'static str,
+    file: &'static str,
+    line: u32,
+    kv: Option<KV>,
+) {
+    let metadata = Metadata::new(level, target.into());
+
+    logger::logger().log(&Record {
+        metadata,
+        elapsed: session::elapsed(),
+        category: category.into(),
+        message: message.into(),
+        module_path: Some(module_path.into()),
+        file: Some(file.into()),
+        line: Some(line),
+        kv,
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use serde_cbor::{from_slice, to_vec};
@@ -200,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_record() {
-        init!();
+        devinit!();
         let record = devlog!(Level::Info, "test.category", "test_message");
         let encoded = to_vec(&record).unwrap();
         let decoded: Record = from_slice(&encoded).unwrap();
@@ -209,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_record_kv() {
-        init!();
+        devinit!();
         let record = devlog!(
             Level::Info,
             "test.category",
@@ -227,8 +261,7 @@ mod tests {
 
         // check display format
         let actual = format!("{}", &record);
-        let expect =
-            r#"{i64 = "I64(-9223372036854775808)", property = "Text("alice")", u8 = "U64(42)", }"#;
+        let expect = r#"{i64 = -9223372036854775808, property = "alice", u8 = 42, }"#;
         assert!(actual.contains("[Info]"));
         assert!(actual.contains("[test.category] test_message (uplog/src/lib.rs"));
         assert!(actual.contains(expect));
