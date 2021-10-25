@@ -82,6 +82,8 @@ pub fn flush() {
     unsafe {
         LOGGER.flush();
         let glocal_handle = HANDLE.get_mut();
-        glocal_handle.take().unwrap().join().ok();
+        if let Some(x) = glocal_handle.take() {
+            x.join().ok();
+        }
     }
 }
