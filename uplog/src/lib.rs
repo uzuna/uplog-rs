@@ -12,8 +12,8 @@ mod session;
 
 pub use {
     client::{
-        try_init, try_init_with_builder, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE,
-        WS_DEFAULT_PORT,
+        init_noop, try_init, try_init_with_builder, try_init_with_host, Builder,
+        DEFAULT_BUFFER_SIZE, WS_DEFAULT_PORT,
     },
     kv::{KVBorrow, Value, ValueBorrow, KV},
     logger::{flush, Log},

@@ -22,6 +22,11 @@ pub const WS_DEFAULT_PORT: u16 = 8040;
 #[allow(dead_code)]
 pub const DEFAULT_BUFFER_SIZE: usize = 1024 * 1024 * 2;
 
+/// initialize the global logger with noop
+pub fn init_noop() {
+    session_init();
+}
+
 /// initialize the global logger
 /// # Example
 ///
