@@ -120,7 +120,11 @@ impl WebsocketClient {
             if is_finaly {
                 break;
             }
-            next_duration = self.tick_duration - start.elapsed();
+            next_duration = if self.tick_duration < start.elapsed() {
+                self.tick_duration - start.elapsed()
+            } else {
+                Duration::ZERO
+            };
         }
         client.close(None).unwrap();
         Ok(())
