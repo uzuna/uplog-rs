@@ -33,11 +33,22 @@ pub fn session_init() {
 }
 
 pub(crate) fn elapsed() -> Duration {
-    unsafe { SESSION.as_ref().unwrap().instant.elapsed() }
+    unsafe {
+        SESSION
+            .as_ref()
+            .expect("need to call session_init() before")
+            .instant
+            .elapsed()
+    }
 }
 
 pub fn start_at() -> DateTime<Utc> {
-    unsafe { SESSION.as_ref().unwrap().start_at }
+    unsafe {
+        SESSION
+            .as_ref()
+            .expect("need to call session_init() before")
+            .start_at
+    }
 }
 
 #[cfg(test)]

@@ -9,3 +9,5 @@ pub enum Error {
     #[error("io error")]
     Io(#[from] std::io::Error),
 }
+
+pub(crate) const ERROR_MESSAGE_MUTEX_LOCK: &str = "failed to lock mutex";

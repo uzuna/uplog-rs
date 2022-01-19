@@ -107,7 +107,6 @@ impl Write for SwapBufWriter {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        // TODO 最後のSwapを行う
         Ok(())
     }
 }
@@ -133,8 +132,14 @@ impl SwapBuffer {
     }
 
     pub(crate) fn swap(&mut self) -> usize {
-        let mut wb = self.write.lock().unwrap();
-        let mut rb = self.read.lock().unwrap();
+        let mut wb = self
+            .write
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
+        let mut rb = self
+            .read
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
 
         // deref mutで中身を取り出してswapする
         unsafe {

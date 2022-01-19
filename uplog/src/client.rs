@@ -109,7 +109,7 @@ impl WebsocketClient {
             let start = Instant::now();
             self.buf.swap();
             {
-                let mut reader = reader.lock().unwrap();
+                let mut reader = reader.lock().expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
                 reader.read_to_end(&mut read_buf)?;
             }
             client.write_message(Message::binary(&read_buf[..]))?;
@@ -257,19 +257,28 @@ impl Log for LogClient {
     }
 
     fn log(&self, record: &RecordBorrow) {
-        let mut writer = self.writer.lock().unwrap();
+        let mut writer = self
+            .writer
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
         serde_cbor::to_writer(writer.deref_mut(), record).expect("serialize error");
     }
 
     fn flush(&self) {
-        let close = self.close_ch.lock().unwrap();
+        let close = self
+            .close_ch
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
         close.send(()).ok();
     }
 }
 
 impl Drop for LogClient {
     fn drop(&mut self) {
-        let close = self.close_ch.lock().unwrap();
+        let close = self
+            .close_ch
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
         close.send(()).ok();
     }
 }
