@@ -1,10 +1,12 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
+use env_logger::Env;
 use log::{debug, error, info};
 use serde_cbor::{to_vec, Deserializer};
+use structopt::StructOpt;
 use uplog::Record;
 use uplog_tools::{actor::StorageActor, Storage};
 use uuid::Uuid;
@@ -24,113 +26,88 @@ async fn ws_index(
     Ok(res)
 }
 
-fn main() {
-    let ws_default_port = uplog::WS_DEFAULT_PORT.to_string();
-    let m = clap::App::new(clap::crate_name!())
-        .version(clap::crate_version!())
-        .author(clap::crate_authors!())
-        .about(clap::crate_description!())
-        .arg(
-            clap::Arg::with_name("port")
-                .short("p")
-                .long("port")
-                .help("listen port")
-                .value_name("NUMBER")
-                .default_value(ws_default_port.as_str())
-                .takes_value(true),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("server")
-                .about("start logging server")
-                .arg(
-                    clap::Arg::with_name("data_dir")
-                        .short("d")
-                        .long("data-dir")
-                        .value_name("DATA_DIR")
-                        .default_value("tempdb"),
-                ),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("client")
-                .about("test client")
-                .arg(
-                    clap::Arg::with_name("host")
-                        .short("h")
-                        .long("host")
-                        .value_name("HOST")
-                        .default_value("localhost"),
-                )
-                .arg(
-                    clap::Arg::with_name("count")
-                        .short("c")
-                        .long("count")
-                        .value_name("COUNT")
-                        .default_value("5"),
-                )
-                .arg(
-                    clap::Arg::with_name("delay")
-                        .long("delay")
-                        .value_name("MILLI_SECONDS"),
-                )
-                .arg(
-                    clap::Arg::with_name("log_interface")
-                        .short("l")
-                        .help("use loginterface"),
-                ),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("read")
-                .about("read records")
-                .arg(
-                    clap::Arg::with_name("data_dir")
-                        .short("d")
-                        .long("data-dir")
-                        .value_name("DATA_DIR")
-                        .default_value("tempdb"),
-                )
-                .arg(clap::Arg::with_name("file").index(1).value_name("FILENAME")),
-        )
-        .get_matches();
+#[derive(Debug, PartialEq, StructOpt)]
+struct Opt {
+    #[structopt(long, short)]
+    debug: bool,
+    #[structopt(subcommand)]
+    sub: Subcommands,
+}
 
-    let port: u16 = m.value_of("port").unwrap().parse().unwrap();
-    if m.is_present("debug") {
+#[derive(Debug, PartialEq, StructOpt)]
+enum Subcommands {
+    /// log receive server
+    Server(ServerOpt),
+    /// dev tool
+    Dev(DevOpt),
+    /// read data dir and file
+    Read(ReadOpt),
+}
+
+#[derive(Debug, PartialEq, StructOpt)]
+struct ServerOpt {
+    /// listen port
+    #[structopt(long, short, default_value = "8040")]
+    port: u16,
+    #[structopt(long, short, default_value = "tempdb", name = "DATA_DIR")]
+    data_dir: String,
+}
+
+#[derive(Debug, PartialEq, StructOpt)]
+struct DevOpt {
+    #[structopt(
+        long,
+        short,
+        default_value = "localhost",
+        help = "connection host",
+        name = "HOST"
+    )]
+    host: String,
+    #[structopt(long, short, default_value = "8040", help = "listen port")]
+    port: u16,
+    #[structopt(long, short, default_value = "5", help = "data count")]
+    count: u16,
+    #[structopt(long, short, default_value = "1", name = "MILLISECONDS", parse(try_from_str = parse_milliseconds))]
+    duration: Duration,
+    #[structopt(short = "l", help = "call from macro interface")]
+    use_log_macro: bool,
+}
+
+fn parse_milliseconds(src: &str) -> Result<Duration, std::num::ParseIntError> {
+    let n = src.parse::<u64>()?;
+    Ok(Duration::from_millis(n))
+}
+
+#[derive(Debug, PartialEq, StructOpt)]
+struct ReadOpt {
+    #[structopt(long, short, default_value = "tempdb", name = "DATA_DIR")]
+    data_dir: String,
+    /// read file
+    #[structopt(name = "FILE")]
+    file: Option<String>,
+}
+
+fn main() {
+    let opt = Opt::from_args();
+
+    if opt.debug {
         std::env::set_var("RUST_LOG", "debug");
     }
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    env_logger::init();
-
-    match m.subcommand() {
-        ("server", Some(sub_m)) => {
-            let data_dir = sub_m.value_of("data_dir").unwrap().to_string();
-            let opt = ServerOption { port, data_dir };
-            server(opt).unwrap();
+    match opt.sub {
+        Subcommands::Server(subopt) => {
+            server(subopt.into()).unwrap();
         }
-        ("client", Some(sub_m)) => {
-            let host = sub_m.value_of("host").unwrap().to_string();
-            let count: u16 = sub_m.value_of("count").unwrap().parse().unwrap();
-            let delay = sub_m
-                .value_of("delay")
-                .map(|x| Duration::from_millis(x.parse::<u64>().unwrap()));
-            let opt = ClientOption {
-                host,
-                port,
-                count,
-                delay,
-            };
-            if m.is_present("log_interface") {
-                client(opt);
+        Subcommands::Dev(subopt) => {
+            if subopt.use_log_macro {
+                client(subopt.into());
             } else {
-                client_log_interface(opt)
+                client_log_interface(subopt.into())
             }
         }
-        ("read", Some(sub_m)) => {
-            let data_dir = sub_m.value_of("data_dir").unwrap().to_string();
-            let file = sub_m.value_of("file").map(|x| x.to_string());
-            let opt = ReadOption { data_dir, file };
-            read(opt);
-        }
-        (_, _) => {
-            println!("{}", m.usage());
+        Subcommands::Read(subopt) => {
+            read(subopt.into());
         }
     };
 }
@@ -138,6 +115,15 @@ fn main() {
 struct ServerOption {
     port: u16,
     data_dir: String,
+}
+
+impl From<ServerOpt> for ServerOption {
+    fn from(x: ServerOpt) -> Self {
+        Self {
+            port: x.port,
+            data_dir: x.data_dir,
+        }
+    }
 }
 
 fn server(opt: ServerOption) -> std::io::Result<()> {
@@ -168,25 +154,37 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
     rt.run()
 }
 
-struct ClientOption {
+struct DevOption {
     host: String,
     port: u16,
     count: u16,
-    delay: Option<Duration>,
+    delay: Duration,
 }
 
-impl ClientOption {
+impl DevOption {
     fn addr(&self) -> String {
         format!("ws://{}:{}/", self.host, self.port)
     }
 }
 
-fn client(opt: ClientOption) {
+impl From<DevOpt> for DevOption {
+    fn from(x: DevOpt) -> Self {
+        Self {
+            host: x.host,
+            port: x.port,
+            count: x.count,
+            delay: x.duration,
+        }
+    }
+}
+
+fn client(opt: DevOption) {
     use tungstenite::{connect, Message};
-    let timestamp = uplog::devinit!();
-    debug!("start at {}", timestamp);
+    uplog::devinit!();
     let url = opt.addr();
-    let (mut client, _) = connect(&url).unwrap();
+    let start = Instant::now();
+    info!("send to {} length={}", &url, opt.count);
+    let (mut client, _) = connect(&url).expect("failed to connect");
 
     for i in 0..opt.count {
         let record = uplog::devlog!(
@@ -196,34 +194,42 @@ fn client(opt: ClientOption) {
             "loop",
             i
         );
-        let buf = to_vec(&record).unwrap();
+        let buf = to_vec(&record).expect("log format error");
         client
             .write_message(Message::binary(buf.as_slice()))
             .map_err(|e| error!("failed to send at: {}, {} ", i, e))
             .ok();
         debug!("send {}", i);
-        if let Some(delay) = &opt.delay {
-            std::thread::sleep(delay.to_owned())
-        }
     }
+    info!("finish. dur={:?}", start.elapsed());
 }
 
-fn client_log_interface(opt: ClientOption) {
-    uplog::try_init().unwrap();
+fn client_log_interface(opt: DevOption) {
+    uplog::try_init_with_builder(uplog::Builder::default().host(&opt.host).port(opt.port)).unwrap();
+    let start = Instant::now();
+    info!("send length={}", opt.count);
 
     for i in 0..opt.count {
         uplog::error!("uplog_server.bin.client", "send", "loop", i);
         debug!("send {}", i);
-        if let Some(delay) = &opt.delay {
-            std::thread::sleep(delay.to_owned())
-        }
+        std::thread::sleep(opt.delay)
     }
+    info!("finish. dur={:?}", start.elapsed());
     uplog::flush();
 }
 
 struct ReadOption {
     data_dir: String,
     file: Option<String>,
+}
+
+impl From<ReadOpt> for ReadOption {
+    fn from(x: ReadOpt) -> Self {
+        Self {
+            data_dir: x.data_dir,
+            file: x.file,
+        }
+    }
 }
 
 fn read(opt: ReadOption) {

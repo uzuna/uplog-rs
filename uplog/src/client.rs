@@ -40,6 +40,7 @@ pub fn init_noop() {
 /// uplog::flush();
 /// ```
 pub fn try_init() -> Result<(), SetLoggerError> {
+    log::debug!("try_init");
     let (logger, handle) = Builder::default().build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -53,6 +54,7 @@ pub fn try_init() -> Result<(), SetLoggerError> {
 /// uplog::try_init_with_host("localhost").unwrap();
 /// ```
 pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
+    log::debug!("try_init_with_host");
     let (logger, handle) = Builder::default().host(host).build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -73,6 +75,7 @@ pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
 /// uplog::try_init_with_builder(builder).unwrap();
 /// ```
 pub fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
+    log::debug!("try_init_with_builder");
     let (logger, handle) = builder.build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -97,10 +100,10 @@ impl WebsocketClient {
         WebsocketClientBuilder::new(url, buf, finish_receiver)
     }
 
-    fn run(&mut self) -> Result<(), String> {
+    fn run(&mut self) -> crate::Result<()> {
         use std::io::Read;
         use tungstenite::client::connect;
-        let (mut client, _) = connect(&self.url).unwrap();
+        let (mut client, _) = connect(&self.url)?;
         let mut read_buf = Vec::<u8>::with_capacity(self.buf.capacity());
         let reader = self.buf.get_reader();
         let mut next_duration = self.tick_duration;
@@ -109,20 +112,18 @@ impl WebsocketClient {
             let start = Instant::now();
             self.buf.swap();
             {
-                let mut reader = reader.lock().unwrap();
-                reader.read_to_end(&mut read_buf).unwrap();
+                let mut reader = reader.lock().expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
+                reader.read_to_end(&mut read_buf)?;
             }
-            client
-                .write_message(Message::binary(&read_buf[..]))
-                .unwrap();
-            log::debug!("send {}", read_buf.len());
+            client.write_message(Message::binary(&read_buf[..]))?;
+            log::debug!("send {} Byte", read_buf.len());
             read_buf.clear();
             if is_finaly {
                 break;
             }
             next_duration = self.tick_duration - start.elapsed();
         }
-        client.close(None).unwrap();
+        client.close(None)?;
         Ok(())
     }
 }
@@ -170,7 +171,7 @@ impl<'b> Builder<'b> {
     ///
     /// Maximum amount of buffer that can be stored until it is sent to the server
     /// The amount actually reserved is twice this specified value (for sending and writing).
-    pub fn buffer_size(&mut self, size: usize) -> &mut Self {
+    pub fn buffer_size(mut self, size: usize) -> Self {
         self.swap_buffer_size = size;
         self
     }
@@ -178,19 +179,19 @@ impl<'b> Builder<'b> {
     /// Sets the swap suration.
     ///
     /// Swap the buffer every cycle specified here
-    pub fn duration(&mut self, duration: Duration) -> &mut Self {
+    pub fn duration(mut self, duration: Duration) -> Self {
         self.swap_duration = duration;
         self
     }
 
     /// Sets the server host name
-    pub fn host(&mut self, host: &'b str) -> &mut Self {
+    pub fn host(mut self, host: &'b str) -> Self {
         self.host = host;
         self
     }
 
     /// Sets the server port
-    pub fn port(&mut self, port: u16) -> &mut Self {
+    pub fn port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
@@ -206,6 +207,7 @@ impl<'b> Builder<'b> {
 
     pub fn build(self) -> (LogClient, JoinHandle<()>) {
         let url = self.url();
+        log::debug!("create client [{}]", &url);
         LogClient::new(url, self.swap_buffer_size, self.swap_duration)
     }
 }
@@ -240,7 +242,7 @@ impl LogClient {
 
         // run sender
         let handle = thread::spawn(move || {
-            client.run().unwrap();
+            client.run().expect("abnormaly stop client");
         });
 
         (
@@ -259,19 +261,28 @@ impl Log for LogClient {
     }
 
     fn log(&self, record: &RecordBorrow) {
-        let mut writer = self.writer.lock().unwrap();
-        serde_cbor::to_writer(writer.deref_mut(), record).unwrap();
+        let mut writer = self
+            .writer
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
+        serde_cbor::to_writer(writer.deref_mut(), record).expect("serialize error");
     }
 
     fn flush(&self) {
-        let close = self.close_ch.lock().unwrap();
+        let close = self
+            .close_ch
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
         close.send(()).ok();
     }
 }
 
 impl Drop for LogClient {
     fn drop(&mut self) {
-        let close = self.close_ch.lock().unwrap();
+        let close = self
+            .close_ch
+            .lock()
+            .expect(crate::error::ERROR_MESSAGE_MUTEX_LOCK);
         close.send(()).ok();
     }
 }

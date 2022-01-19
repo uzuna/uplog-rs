@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 mod macros;
 mod buffer;
 mod client;
+pub mod error;
 mod kv;
 mod logger;
 mod session;
@@ -15,6 +16,7 @@ pub use {
         init_noop, try_init, try_init_with_builder, try_init_with_host, Builder,
         DEFAULT_BUFFER_SIZE, WS_DEFAULT_PORT,
     },
+    error::{Error, Result},
     kv::{KVBorrow, Value, ValueBorrow, KV},
     logger::{flush, Log},
     session::session_init,
@@ -309,7 +311,7 @@ pub fn __encode_log<'a>(
         line: Some(line),
         kv,
     };
-    serde_cbor::to_writer(buf, &r).unwrap();
+    serde_cbor::to_writer(buf, &r).expect("serialize error");
 }
 
 #[doc(hidden)]

@@ -12,6 +12,7 @@ serde = { version = "1.0.126", features = ["derive"] }
 tungstenite = "0.15.0"
 serde_cbor = "0.11.1"
 url = "2.2.2"
+thiserror = "1.0.30"
 
 [dev-dependencies]
 bytes = "1.1.0"
