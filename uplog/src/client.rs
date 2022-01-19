@@ -97,11 +97,10 @@ impl WebsocketClient {
         WebsocketClientBuilder::new(url, buf, finish_receiver)
     }
 
-    fn run(&mut self) -> Result<(), String> {
+    fn run(&mut self) -> crate::Result<()> {
         use std::io::Read;
         use tungstenite::client::connect;
-        // TODO crate error
-        let (mut client, _) = connect(&self.url).unwrap();
+        let (mut client, _) = connect(&self.url)?;
         let mut read_buf = Vec::<u8>::with_capacity(self.buf.capacity());
         let reader = self.buf.get_reader();
         let mut next_duration = self.tick_duration;
@@ -111,11 +110,9 @@ impl WebsocketClient {
             self.buf.swap();
             {
                 let mut reader = reader.lock().unwrap();
-                reader.read_to_end(&mut read_buf).unwrap();
+                reader.read_to_end(&mut read_buf)?;
             }
-            client
-                .write_message(Message::binary(&read_buf[..]))
-                .unwrap();
+            client.write_message(Message::binary(&read_buf[..]))?;
             log::debug!("send {} Byte", read_buf.len());
             read_buf.clear();
             if is_finaly {
@@ -123,7 +120,7 @@ impl WebsocketClient {
             }
             next_duration = self.tick_duration - start.elapsed();
         }
-        client.close(None).unwrap();
+        client.close(None)?;
         Ok(())
     }
 }
@@ -241,7 +238,7 @@ impl LogClient {
 
         // run sender
         let handle = thread::spawn(move || {
-            client.run().unwrap();
+            client.run().expect("abnormaly stop client");
         });
 
         (
@@ -261,7 +258,7 @@ impl Log for LogClient {
 
     fn log(&self, record: &RecordBorrow) {
         let mut writer = self.writer.lock().unwrap();
-        serde_cbor::to_writer(writer.deref_mut(), record).unwrap();
+        serde_cbor::to_writer(writer.deref_mut(), record).expect("serialize error");
     }
 
     fn flush(&self) {
