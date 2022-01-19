@@ -24,7 +24,7 @@ fn client() {
     let addr = format!("localhost:{}", 9004);
     let handle = ws_server(addr);
 
-    let mut builder = uplog::Builder::default();
+    let builder = uplog::Builder::default();
     builder.port(9004);
     uplog::try_init_with_builder(builder).unwrap();
     trace!("test.base", "hello", "cats", "meow", "nekomimi", true);

@@ -100,6 +100,7 @@ impl WebsocketClient {
     fn run(&mut self) -> Result<(), String> {
         use std::io::Read;
         use tungstenite::client::connect;
+        // TODO crate error
         let (mut client, _) = connect(&self.url).unwrap();
         let mut read_buf = Vec::<u8>::with_capacity(self.buf.capacity());
         let reader = self.buf.get_reader();
@@ -115,7 +116,7 @@ impl WebsocketClient {
             client
                 .write_message(Message::binary(&read_buf[..]))
                 .unwrap();
-            log::debug!("send {}", read_buf.len());
+            log::debug!("send {} Byte", read_buf.len());
             read_buf.clear();
             if is_finaly {
                 break;
@@ -170,7 +171,7 @@ impl<'b> Builder<'b> {
     ///
     /// Maximum amount of buffer that can be stored until it is sent to the server
     /// The amount actually reserved is twice this specified value (for sending and writing).
-    pub fn buffer_size(&mut self, size: usize) -> &mut Self {
+    pub fn buffer_size(mut self, size: usize) -> Self {
         self.swap_buffer_size = size;
         self
     }
@@ -178,19 +179,19 @@ impl<'b> Builder<'b> {
     /// Sets the swap suration.
     ///
     /// Swap the buffer every cycle specified here
-    pub fn duration(&mut self, duration: Duration) -> &mut Self {
+    pub fn duration(mut self, duration: Duration) -> Self {
         self.swap_duration = duration;
         self
     }
 
     /// Sets the server host name
-    pub fn host(&mut self, host: &'b str) -> &mut Self {
+    pub fn host(mut self, host: &'b str) -> Self {
         self.host = host;
         self
     }
 
     /// Sets the server port
-    pub fn port(&mut self, port: u16) -> &mut Self {
+    pub fn port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
