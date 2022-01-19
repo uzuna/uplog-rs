@@ -40,6 +40,7 @@ pub fn init_noop() {
 /// uplog::flush();
 /// ```
 pub fn try_init() -> Result<(), SetLoggerError> {
+    log::debug!("try_init");
     let (logger, handle) = Builder::default().build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -53,6 +54,7 @@ pub fn try_init() -> Result<(), SetLoggerError> {
 /// uplog::try_init_with_host("localhost").unwrap();
 /// ```
 pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
+    log::debug!("try_init_with_host");
     let (logger, handle) = Builder::default().host(host).build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -73,6 +75,7 @@ pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
 /// uplog::try_init_with_builder(builder).unwrap();
 /// ```
 pub fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
+    log::debug!("try_init_with_builder");
     let (logger, handle) = builder.build();
     set_boxed_logger(Box::new(logger), handle)?;
     Ok(())
@@ -204,6 +207,7 @@ impl<'b> Builder<'b> {
 
     pub fn build(self) -> (LogClient, JoinHandle<()>) {
         let url = self.url();
+        log::debug!("create client [{}]", &url);
         LogClient::new(url, self.swap_buffer_size, self.swap_duration)
     }
 }

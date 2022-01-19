@@ -20,12 +20,12 @@ fn base() {
     debug!("test.base", "hello", "cats", "meow");
     trace!("test.base", "hello", "cats", "meow", "nekomimi", true);
 }
+
 fn client() {
     let addr = format!("localhost:{}", 9004);
     let handle = ws_server(addr);
 
-    let builder = uplog::Builder::default();
-    builder.port(9004);
+    let builder = uplog::Builder::default().port(9004);
     uplog::try_init_with_builder(builder).unwrap();
     trace!("test.base", "hello", "cats", "meow", "nekomimi", true);
     debug!("test.base", "hello", "cats", "meow");
