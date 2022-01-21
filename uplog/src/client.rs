@@ -60,21 +60,7 @@ pub fn try_init_with_host(host: &str) -> Result<(), SetLoggerError> {
     Ok(())
 }
 
-/// initialize the global logger with builder
-///
-/// # Example
-///
-/// ```
-/// use std::time::Duration;
-///
-/// let mut builder = uplog::Builder::default();
-/// builder.buffer_size(1024)
-///     .host("localhost")
-///     .port(8080)
-///     .duration(Duration::from_millis(1000));
-/// uplog::try_init_with_builder(builder).unwrap();
-/// ```
-pub fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
+pub(crate) fn try_init_with_builder(builder: Builder) -> Result<(), SetLoggerError> {
     log::debug!("try_init_with_builder");
     let (logger, handle) = builder.build();
     set_boxed_logger(Box::new(logger), handle)?;
@@ -154,7 +140,21 @@ impl WebsocketClientBuilder {
     }
 }
 
-/// Build the logger instance
+/// initialize the global logger with builder
+///
+/// # Example
+///
+/// ```
+/// use std::time::Duration;
+///
+/// uplog::Builder::default()
+///     .buffer_size(1024)
+///     .host("localhost")
+///     .port(8080)
+///     .duration(Duration::from_millis(1000))
+///     .try_init()
+///     .unwrap();
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct Builder<'b> {
     secure_connection: bool,
@@ -205,10 +205,15 @@ impl<'b> Builder<'b> {
         Url::parse(&addr).expect("failed to parse url")
     }
 
-    pub fn build(self) -> (LogClient, JoinHandle<()>) {
+    fn build(self) -> (LogClient, JoinHandle<()>) {
         let url = self.url();
         log::debug!("create client [{}]", &url);
         LogClient::new(url, self.swap_buffer_size, self.swap_duration)
+    }
+
+    /// try init uplog c;ient
+    pub fn try_init(self) -> Result<(), SetLoggerError> {
+        crate::client::try_init_with_builder(self)
     }
 }
 

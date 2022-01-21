@@ -126,6 +126,7 @@ macro_rules! devlog_encode {
     });
 }
 
+/// 開発向け セッション時間のみ初期化
 #[macro_export(local_inner_macros)]
 macro_rules! devinit {
     () => {{

@@ -13,8 +13,7 @@ mod session;
 
 pub use {
     client::{
-        init_noop, try_init, try_init_with_builder, try_init_with_host, Builder,
-        DEFAULT_BUFFER_SIZE, WS_DEFAULT_PORT,
+        init_noop, try_init, try_init_with_host, Builder, DEFAULT_BUFFER_SIZE, WS_DEFAULT_PORT,
     },
     error::{Error, Result},
     kv::{KVBorrow, Value, ValueBorrow, KV},

@@ -205,7 +205,11 @@ fn client(opt: DevOption) {
 }
 
 fn client_log_interface(opt: DevOption) {
-    uplog::try_init_with_builder(uplog::Builder::default().host(&opt.host).port(opt.port)).unwrap();
+    uplog::Builder::default()
+        .host(&opt.host)
+        .port(opt.port)
+        .try_init()
+        .unwrap();
     let start = Instant::now();
     info!("send length={}", opt.count);
 
