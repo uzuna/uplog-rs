@@ -16,15 +16,21 @@ pub trait StorageReader {
 
 /// 単純なCBORSequenceFile
 /// index情報など含まれていないので先頭から読むしかない
-pub(crate) struct CBORSequenceReader {
+pub struct CBORSequenceReader {
     file: File,
 }
 
 impl CBORSequenceReader {
     #[allow(dead_code)]
-    pub(crate) fn new<P: AsRef<Path>>(dirpath: P) -> Result<Self, std::io::Error> {
+    pub fn new<P: AsRef<Path>>(dirpath: P) -> Result<Self, std::io::Error> {
         let file = std::fs::File::open(dirpath.as_ref().join(CBORSequenceWriter::FILENAME))?;
         Ok(Self { file })
+    }
+}
+
+impl From<File> for CBORSequenceReader {
+    fn from(file: File) -> Self {
+        Self { file }
     }
 }
 

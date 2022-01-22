@@ -1,10 +1,12 @@
-
-
-use actix_web::{web, Responder};
+use actix_web::{get, web, Responder};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use uplog::Record;
 
-use crate::{SessionInfo, Storage};
+use crate::{
+    reader::{CBORSequenceReader, StorageReader},
+    SessionInfo, Storage,
+};
 
 #[derive(Debug, Clone)]
 pub struct WebState {
@@ -27,10 +29,31 @@ impl From<SessionInfo> for SessionViewInfo {
         }
     }
 }
+
+#[get("/storages")]
 pub async fn storages(state: web::Data<WebState>) -> impl Responder {
     let storage = Storage::new(&state.data_dir).unwrap();
-    let records = storage.records().unwrap();
+    let mut records = storage.records().unwrap();
+    records.sort_by(|a, b| b.created_at().cmp(a.created_at()));
     let sb: Vec<SessionViewInfo> = records.into_iter().map(|x| x.into()).collect();
 
     web::Json(sb)
+}
+
+#[get("/storage/{name}")]
+pub async fn storage_read(state: web::Data<WebState>, name: web::Path<String>) -> impl Responder {
+    let storage = Storage::new(&state.data_dir).unwrap();
+    let records = storage.records().unwrap();
+    let name = name.into_inner();
+    let target: Vec<SessionInfo> = records
+        .into_iter()
+        .filter(|x| x.path().to_str().unwrap().contains(&name))
+        .collect();
+    if target.is_empty() {
+        return web::Json(Vec::<Record>::new());
+    }
+    let session = &target[0];
+    let mut reader: CBORSequenceReader = session.open().unwrap().into();
+    let data = reader.read_at(0, 100).unwrap();
+    web::Json(data)
 }

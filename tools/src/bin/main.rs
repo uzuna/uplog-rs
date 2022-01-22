@@ -10,7 +10,7 @@ use structopt::StructOpt;
 use uplog::Record;
 use uplog_tools::{
     actor::StorageActor,
-    webapi::{storages, WebState},
+    webapi::{storage_read, storages, WebState},
     Storage,
 };
 use uuid::Uuid;
@@ -152,7 +152,8 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                 // websocket route
                 .service(web::resource("/").route(web::get().to(ws_index)))
                 .data(state.clone())
-                .route("/storages", web::get().to(storages))
+                .service(storages)
+                .service(storage_read)
         })
         .bind(bind_addr)
         .unwrap()
