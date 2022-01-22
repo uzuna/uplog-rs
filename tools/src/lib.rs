@@ -1,5 +1,6 @@
 pub mod actor;
 mod reader;
+pub mod webapi;
 mod writer;
 
 use std::{
@@ -76,6 +77,7 @@ impl Drop for Session {
     }
 }
 
+#[derive(Debug)]
 pub struct SessionInfo {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,

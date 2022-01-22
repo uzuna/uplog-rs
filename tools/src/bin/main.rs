@@ -8,7 +8,11 @@ use log::{debug, error, info};
 use serde_cbor::{to_vec, Deserializer};
 use structopt::StructOpt;
 use uplog::Record;
-use uplog_tools::{actor::StorageActor, Storage};
+use uplog_tools::{
+    actor::StorageActor,
+    webapi::{storages, WebState},
+    Storage,
+};
 use uuid::Uuid;
 
 // Handle http request
@@ -128,6 +132,9 @@ impl From<ServerOpt> for ServerOption {
 
 fn server(opt: ServerOption) -> std::io::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", opt.port);
+    let state = WebState {
+        data_dir: opt.data_dir.clone(),
+    };
     let storage = uplog_tools::Storage::new(opt.data_dir)?;
     let mut rt = actix_web::rt::System::new("server");
 
@@ -141,9 +148,11 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
             App::new()
                 // enable logger
                 .wrap(middleware::Logger::default())
+                .data(storage_addr.clone())
                 // websocket route
                 .service(web::resource("/").route(web::get().to(ws_index)))
-                .data(storage_addr.clone())
+                .data(state.clone())
+                .route("/storages", web::get().to(storages))
         })
         .bind(bind_addr)
         .unwrap()
