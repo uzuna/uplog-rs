@@ -14,7 +14,7 @@ pub(crate) struct CBORSequenceWriter {
 
 impl CBORSequenceWriter {
     #[allow(dead_code)]
-    const FILENAME: &'static str = "seqdata";
+    pub(crate) const FILENAME: &'static str = "seqdata";
 
     #[allow(dead_code)]
     pub(crate) fn new<P: AsRef<Path>>(dirpath: P) -> Result<Self, std::io::Error> {
