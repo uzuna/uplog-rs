@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
+
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use env_logger::Env;
@@ -154,6 +155,11 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                 .data(state.clone())
                 .service(storages)
                 .service(storage_read)
+                .service(
+                    actix_files::Files::new("/", "./view/")
+                        .prefer_utf8(true)
+                        .index_file("index.html"),
+                )
         })
         .bind(bind_addr)
         .unwrap()

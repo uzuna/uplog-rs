@@ -1,6 +1,10 @@
-use actix_web::{get, web, Responder};
+use actix_web::{
+    get,
+    web::{self, Query},
+    Responder,
+};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uplog::Record;
 
 use crate::{
@@ -40,8 +44,18 @@ pub async fn storages(state: web::Data<WebState>) -> impl Responder {
     web::Json(sb)
 }
 
+#[derive(Deserialize)]
+pub struct ReadAtQuery {
+    start: Option<usize>,
+    length: Option<usize>,
+}
+
 #[get("/storage/{name}")]
-pub async fn storage_read(state: web::Data<WebState>, name: web::Path<String>) -> impl Responder {
+pub async fn storage_read(
+    state: web::Data<WebState>,
+    name: web::Path<String>,
+    info: Query<ReadAtQuery>,
+) -> impl Responder {
     let storage = Storage::new(&state.data_dir).unwrap();
     let records = storage.records().unwrap();
     let name = name.into_inner();
@@ -54,6 +68,8 @@ pub async fn storage_read(state: web::Data<WebState>, name: web::Path<String>) -
     }
     let session = &target[0];
     let mut reader: CBORSequenceReader = session.open().unwrap().into();
-    let data = reader.read_at(0, 100).unwrap();
+    let data = reader
+        .read_at(info.start.unwrap_or(0), info.length.unwrap_or(100))
+        .unwrap();
     web::Json(data)
 }
