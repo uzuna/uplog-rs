@@ -6,12 +6,12 @@ use std::{
 
 use uplog::Record;
 
-use crate::writer::CBORSequenceWriter;
+use crate::{writer::CBORSequenceWriter, LogRecord};
 
 /// 最低限満たすべき性質
 pub trait StorageReader {
     /// メモリに確保する形式。省メモリにするためにWriterを渡すインターフェースにするのが望ましい
-    fn read_at(&mut self, index: usize, len: usize) -> Result<Vec<Record>, std::io::Error>;
+    fn read_at(&mut self, index: usize, len: usize) -> Result<Vec<LogRecord>, std::io::Error>;
 }
 
 /// 単純なCBORSequenceFile
@@ -35,7 +35,7 @@ impl From<File> for CBORSequenceReader {
 }
 
 impl StorageReader for CBORSequenceReader {
-    fn read_at(&mut self, index: usize, len: usize) -> Result<Vec<Record>, std::io::Error> {
+    fn read_at(&mut self, index: usize, len: usize) -> Result<Vec<LogRecord>, std::io::Error> {
         // 先頭から読んで特定のindexから特定の長さのデータを読み出して返す
         debug_assert!(len > 0);
         let mut count: usize = 0;
@@ -45,7 +45,7 @@ impl StorageReader for CBORSequenceReader {
         for (i, v) in iter.enumerate() {
             if i >= index {
                 if let Ok(v) = v {
-                    result.push(v)
+                    result.push(LogRecord::new(i, v))
                 } else {
                     println!("failed to read");
                 }

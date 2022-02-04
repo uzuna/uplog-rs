@@ -156,7 +156,7 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                 .service(storages)
                 .service(storage_read)
                 .service(
-                    actix_files::Files::new("/", "./view/")
+                    actix_files::Files::new("/view", "./view/")
                         .prefer_utf8(true)
                         .index_file("index.html"),
                 )

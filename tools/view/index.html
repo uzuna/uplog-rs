@@ -12,16 +12,60 @@
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.3/jsgrid.min.js"></script>
 
         <script>
-            var clients = [
-                { "Name": "Otto Clay", "Age": 25, "Country": 1, "Address": "Ap #897-1459 Quam Avenue", "Married": false },
-                { "Name": "Connor Johnston", "Age": 45, "Country": 2, "Address": "Ap #370-4647 Dis Av.", "Married": true },
-                { "Name": "Lacey Hess", "Age": 29, "Country": 3, "Address": "Ap #365-8835 Integer St.", "Married": false },
-                { "Name": "Timothy Henson", "Age": 56, "Country": 1, "Address": "911-5143 Luctus Ave", "Married": true },
-                { "Name": "Ramona Benton", "Age": 32, "Country": 3, "Address": "Ap #614-689 Vehicula Street", "Married": false }
-            ];
+
+            function filter_fn(f_obj, target) {
+                for(key in f_obj) {
+                    if (key in target && typeof target[key] === "object" && typeof f_obj[key] === "object") {
+                        if (!filter_fn(f_obj[key], target[key])) {
+                            return false;
+                        }
+                    }
+                    value = f_obj[key]
+                    if (value != undefined && value != "" && key in target) {
+                        if (typeof target[key] === 'number') {
+                            if (target[key].toString().indexOf(value.toString()) == -1) {
+                                return false;
+                            }
+                        } else if (typeof target[key] === 'string'){
+                            if (target[key].indexOf(value) == -1) {
+                                return false;
+                            }
+                        } else if (typeof target[key] === 'object'){
+                            for(vk in target[key]) {
+                                let vv = target[key][vk]
+                                if (typeof vv === 'number') {
+                                    if (vv == value) {
+                                        return true;
+                                    }
+                                } else if (typeof vv === 'string'){
+                                    if (vv.indexOf(value) > -1) {
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        } else {
+                            console.log("else", key, value, typeof target[key], target)
+                        }
+                    }
+                }
+                return true
+            }
+            function Controller(){
+                this.loadData = function(filter) {
+                    return $.grep(this.data, function(line) {
+                        return filter_fn(filter, line);
+                    });
+                };
+                this.insertItem = function(insertingClient) {};
+                this.updateItem = function(updatingClient) {};
+                this.deleteItem = function(deletingClient) {};
+                this.setData = function(data) {this.data = data};
+            };
  
             function render_storages(data) {
-                // console.log(data);
+                let db = new Controller();
+                db.setData(data);
                 $("#jsGrid").jsGrid({
                     width: "100%",
             
@@ -30,8 +74,9 @@
                     editing: false,
                     sorting: true,
                     paging: false,
-            
                     data: data,
+                    controller: db,
+
                     rowClick: function(args) { 
                         let path = '/storage/' + args.item.name;
                         console.log("row click", args, path);
@@ -48,7 +93,8 @@
             }
             
             function render_storage(data) {
-                console.log(data);
+                let db = new Controller();
+                db.setData(data);
                 $("#jsGrid").jsGrid({
                     width: "100%",
             
@@ -59,20 +105,23 @@
                     paging: false,
             
                     data: data,
+                    controller: db,
+
                     rowClick: function(args) { 
                         console.log("row click2", args);
                     },
 
             
                     fields: [
-                        { name: "metadata.level", title: "level", type: "text", width: 20},
-                        { name: "elapsed", title: "elapsed", type: "text", width: 40, itemTemplate: function(value, item) {
+                        { name: "id", type: "number", width: 20},
+                        { name: "record.metadata.level", title: "level", type: "text", width: 20},
+                        { name: "record.elapsed", title: "elapsed", type: "text", width: 40, itemTemplate: function(value, item) {
                             msec =Math.round((value.secs + value.nanos / 1000000000) * 1000000)
                             return msec / 1000000;
                         }},
-                        { name: "category", type: "text", width: 80},
-                        { name: "message", type: "text", width: 120},
-                        { name: "kv", type: "text", width: 120, itemTemplate: function(value, item) {
+                        { name: "record.category", type: "text", width: 80},
+                        { name: "record.message", type: "text", width: 120},
+                        { name: "record.kv", type: "text", width: 120, itemTemplate: function(value, item) {
                             return JSON.stringify(value);
                         }},
                     ]

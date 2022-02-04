@@ -12,6 +12,20 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use log::debug;
+use serde::Serialize;
+use uplog::Record;
+
+#[derive(Debug, Serialize)]
+pub struct LogRecord {
+    id: usize,
+    record: Record,
+}
+
+impl LogRecord {
+    pub fn new(id: usize, record: Record) -> Self {
+        Self { id, record }
+    }
+}
 
 /// ログファイルの配置を管理する
 pub struct Storage {

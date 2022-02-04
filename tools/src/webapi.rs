@@ -9,7 +9,7 @@ use uplog::Record;
 
 use crate::{
     reader::{CBORSequenceReader, StorageReader},
-    SessionInfo, Storage,
+    LogRecord, SessionInfo, Storage,
 };
 
 #[derive(Debug, Clone)]
@@ -64,7 +64,7 @@ pub async fn storage_read(
         .filter(|x| x.path().to_str().unwrap().contains(&name))
         .collect();
     if target.is_empty() {
-        return web::Json(Vec::<Record>::new());
+        return web::Json(Vec::<LogRecord>::new());
     }
     let session = &target[0];
     let mut reader: CBORSequenceReader = session.open().unwrap().into();
