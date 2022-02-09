@@ -17,11 +17,11 @@ pub struct WebState {
     pub data_dir: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SessionViewInfo {
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub name: String,
 }
 
 impl From<SessionInfo> for SessionViewInfo {
