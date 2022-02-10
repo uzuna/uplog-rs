@@ -6,14 +6,14 @@ use actix_web::web::Data;
 use actix_web::{guard, web, App, HttpResponse, HttpServer, Result};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{
-    scalar, EmptyMutation, EmptySubscription, Enum, Object, Scalar, ScalarType, Schema,
-    SimpleObject,
+    scalar, EmptyMutation, EmptySubscription, Enum, InputObject, Object, Scalar, ScalarType,
+    Schema, SimpleObject,
 };
 use async_graphql_actix_web::{Request, Response};
 use chrono::{DateTime, Utc};
+use log::info;
 use serde::{Deserialize, Serialize};
-use uplog_tools::webapi::SessionViewInfo;
-use uplog_tools::{SessionInfo, Storage};
+use uplog::KV;
 
 #[derive(SimpleObject)]
 struct Dummy {
@@ -60,20 +60,22 @@ struct ModeInfo {
     ts: DateTimeScalar,
 }
 
-#[derive(SimpleObject)]
-pub struct StorageInfo {
-    created_at: DateTimeScalar,
-    updated_at: DateTimeScalar,
-    name: String,
+#[derive(Debug, InputObject)]
+struct SumRequest {
+    a: f32,
+    b: f32,
+    c: Option<f32>,
 }
 
-impl From<SessionViewInfo> for StorageInfo {
-    fn from(x: SessionViewInfo) -> Self {
-        Self {
-            created_at: DateTimeScalar(x.created_at),
-            updated_at: DateTimeScalar(x.updated_at),
-            name: x.name,
-        }
+#[derive(Debug, Default)]
+struct KeyValueType {
+    kv: KV,
+}
+
+#[Object]
+impl KeyValueType {
+    async fn json(&self) -> serde_json::Result<String> {
+        serde_json::to_string(&self.kv)
     }
 }
 
@@ -101,11 +103,33 @@ impl Query {
     async fn doublef(&self, value: f32) -> f32 {
         value * 2.0
     }
+    async fn mod2(&self, value: usize) -> Result<usize, String> {
+        if value % 2 == 0 {
+            Ok(value)
+        } else {
+            Err(String::from("it is error"))
+        }
+    }
     async fn mylist(&self) -> &[f32] {
         &[0.1, 2.0, 3.0]
     }
     async fn dummy(&self) -> Dummy {
         Dummy::default()
+    }
+    async fn kv(&self) -> KeyValueType {
+        let mut kv = KeyValueType::default();
+        kv.kv.insert("first".to_string(), 1.into());
+        kv.kv.insert("second".to_string(), String::from("2").into());
+        kv.kv.insert("thrid".to_string(), 2.345.into());
+        kv
+    }
+    async fn sum(&self, req: SumRequest) -> f32 {
+        println!("req: {req:?}");
+        let mut sum = req.a + req.b;
+        if let Some(c) = req.c {
+            sum += c;
+        }
+        sum
     }
     async fn dummys(&self, start: usize, len: usize) -> PageOfDummys {
         let data = vec![
@@ -129,23 +153,6 @@ impl Query {
         println!("{:?}", ts);
         true
     }
-
-    async fn storages(&self) -> Vec<StorageInfo> {
-        let storage = Storage::new(&self.data_dir).unwrap();
-        let mut records: Vec<StorageInfo> = storage
-            .records()
-            .unwrap()
-            .into_iter()
-            .map(|x| {
-                let s = SessionViewInfo::from(x);
-                StorageInfo::from(s)
-            })
-            .collect();
-        records.sort_by(|a, b| b.created_at.0.cmp(&a.created_at.0));
-
-        records
-    }
-    // Scalarの例と書式表現を返すQueryがあると良いんじゃないの説
 }
 
 type ApiSchema = Schema<Query, EmptyMutation, EmptySubscription>;
