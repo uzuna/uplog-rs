@@ -14,7 +14,7 @@ use async_graphql::{scalar, Enum, Object};
 use chrono::{DateTime, Utc};
 use log::debug;
 use serde::{Deserialize, Serialize};
-use uplog::{Level, Record};
+use uplog::{Level, Record, KV};
 
 #[derive(Debug, Serialize)]
 pub struct LogRecord {
@@ -75,11 +75,9 @@ impl<'record> RecordObject<'record> {
             None
         }
     }
-    async fn kv_json(&self) -> Option<String> {
+    async fn kv(&self) -> Option<KeyValue<'record>> {
         if let Some(ref kv) = self.0.kv {
-            if let Ok(s) = serde_json::to_string(kv) {
-                return Some(s);
-            }
+            return Some(KeyValue(kv));
         }
         None
     }
@@ -103,6 +101,15 @@ impl From<Level> for LogLevel {
             Level::Warn => Self::Warn,
             Level::Error => Self::Error,
         }
+    }
+}
+
+struct KeyValue<'record>(&'record KV);
+
+#[Object]
+impl<'record> KeyValue<'record> {
+    async fn json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&self.0)
     }
 }
 
