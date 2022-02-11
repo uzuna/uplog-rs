@@ -10,7 +10,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-
 use async_graphql::{scalar, Enum, Object};
 use chrono::{DateTime, Utc};
 use log::debug;
@@ -56,21 +55,21 @@ impl<'record> RecordObject<'record> {
         &self.0.message
     }
     async fn module_path(&self) -> Option<&str> {
-        if let Some(ref x ) = self.0.module_path {
+        if let Some(ref x) = self.0.module_path {
             Some(x)
         } else {
             None
         }
     }
     async fn file(&self) -> Option<&str> {
-        if let Some(ref x ) = self.0.file {
+        if let Some(ref x) = self.0.file {
             Some(x)
         } else {
             None
         }
     }
     async fn line(&self) -> Option<&u32> {
-        if let Some(ref x ) = self.0.line {
+        if let Some(ref x) = self.0.line {
             Some(x)
         } else {
             None

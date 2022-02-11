@@ -29,7 +29,13 @@ async fn ws_index(
     stream: web::Payload,
     srv: web::Data<Addr<StorageActor>>,
 ) -> Result<HttpResponse, Error> {
-    let actor = uplog_tools::actor::WsConn::new(Uuid::new_v4(), srv.get_ref().clone().recipient());
+    let ip_addr: String = req
+        .connection_info()
+        .realip_remote_addr()
+        .map(|x| String::from(x))
+        .unwrap_or_else(|| String::from("unknown"));
+    let actor =
+        uplog_tools::actor::WsConn::new(Uuid::new_v4(), ip_addr, srv.get_ref().clone().recipient());
     let mut res = ws::handshake(&req)?;
     // デフォルトでは64KBのペイロードのため拡張する
     let codec = actix_http::ws::Codec::new().max_size(uplog::DEFAULT_BUFFER_SIZE);
@@ -307,4 +313,3 @@ fn read(opt: ReadOption) {
         }
     };
 }
-

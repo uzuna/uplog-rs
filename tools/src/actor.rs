@@ -10,6 +10,8 @@ use uuid::Uuid;
 pub struct StorageRequest {
     addr: Recipient<StorageResponse>,
     self_id: Uuid,
+    /// TODO store session info
+    remote_addr: String,
 }
 
 #[derive(Message)]
@@ -92,14 +94,16 @@ impl Handler<SessionCommand> for SessionActor {
 
 pub struct WsConn {
     id: uuid::Uuid,
+    remote_addr: String,
     storage_addr: Recipient<StorageRequest>,
     session_addr: Option<Recipient<SessionCommand>>,
 }
 
 impl WsConn {
-    pub fn new(id: Uuid, storage_addr: Recipient<StorageRequest>) -> Self {
+    pub fn new(id: Uuid, remote_addr: String, storage_addr: Recipient<StorageRequest>) -> Self {
         Self {
             id,
+            remote_addr,
             storage_addr,
             session_addr: None,
         }
@@ -114,6 +118,7 @@ impl Actor for WsConn {
             .send(StorageRequest {
                 addr: ctx.address().recipient(),
                 self_id: self.id,
+                remote_addr: self.remote_addr.clone(),
             })
             .into_actor(self)
             .then(|res, _, ctx| {

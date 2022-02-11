@@ -1,16 +1,13 @@
-
-
 use actix_cors::Cors;
 use actix_http::http::header;
 use actix_web::web::Data;
 use actix_web::{guard, web, App, HttpResponse, HttpServer, Result};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{
-    scalar, EmptyMutation, EmptySubscription, Enum, InputObject, Object,
-    Schema, SimpleObject,
+    scalar, EmptyMutation, EmptySubscription, Enum, InputObject, Object, Schema, SimpleObject,
 };
 use async_graphql_actix_web::{Request, Response};
-use chrono::{Utc};
+use chrono::Utc;
 
 use serde::{Deserialize, Serialize};
 use uplog::KV;

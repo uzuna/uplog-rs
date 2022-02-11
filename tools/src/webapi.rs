@@ -2,12 +2,11 @@ use crate::{
     reader::{CBORSequenceReader, StorageReader},
     LogRecord, SessionInfo, Storage,
 };
+use actix_web::HttpRequest;
 use actix_web::{web, HttpResponse, Result};
-use actix_web::{HttpRequest};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{
-    scalar, EmptyMutation, EmptySubscription, InputObject, Object,
-    Schema, SimpleObject,
+    scalar, EmptyMutation, EmptySubscription, InputObject, Object, Schema, SimpleObject,
 };
 use async_graphql_actix_web::{Request, Response};
 use chrono::{DateTime, Utc};
