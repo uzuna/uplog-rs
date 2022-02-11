@@ -2,8 +2,15 @@ use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 
-use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use actix_cors::Cors;
+use actix_http::http::header;
+use actix_web::{
+    guard,
+    web::{self, Data},
+    App, Error, HttpRequest, HttpResponse, HttpServer,
+};
 use actix_web_actors::ws;
+use async_graphql::{EmptyMutation, EmptySubscription, Schema};
 use env_logger::Env;
 use log::{debug, error, info};
 use serde_cbor::{to_vec, Deserializer};
@@ -11,7 +18,7 @@ use structopt::StructOpt;
 use uplog::Record;
 use uplog_tools::{
     actor::StorageActor,
-    webapi::{storage_read, storages, WebState},
+    webapi::{self, Query},
     Storage,
 };
 use uuid::Uuid;
@@ -133,11 +140,9 @@ impl From<ServerOpt> for ServerOption {
 
 fn server(opt: ServerOption) -> std::io::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", opt.port);
-    let state = WebState {
-        data_dir: opt.data_dir.clone(),
-    };
     let storage = uplog_tools::Storage::new(opt.data_dir)?;
     let mut rt = actix_web::rt::System::new("server");
+    let schema = Schema::build(Query::default(), EmptyMutation, EmptySubscription).finish();
 
     rt.block_on(async move {
         // setup storage dir
@@ -146,15 +151,32 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
 
         info!("listen at {}", &bind_addr);
         HttpServer::new(move || {
+            let cors = Cors::default()
+                .allowed_origin_fn(|_origin, _req_head| true)
+                .allowed_methods(vec!["GET", "POST"])
+                .allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
+                .allowed_header(header::CONTENT_TYPE)
+                .supports_credentials()
+                .max_age(3600);
             App::new()
+                .wrap(cors)
                 // enable logger
-                .wrap(middleware::Logger::default())
+                // .wrap(middleware::Logger::default())
                 .data(storage_addr.clone())
                 // websocket route
                 .service(web::resource("/").route(web::get().to(ws_index)))
-                .data(state.clone())
-                .service(storages)
-                .service(storage_read)
+                // graphql
+                .app_data(Data::new(schema.clone()))
+                .service(
+                    web::resource("/graphql")
+                        .guard(guard::Post())
+                        .to(webapi::index),
+                )
+                .service(
+                    web::resource("/graphql")
+                        .guard(guard::Get())
+                        .to(webapi::index_playground),
+                )
                 .service(
                     actix_files::Files::new("/view", "./view/")
                         .prefer_utf8(true)
@@ -285,3 +307,4 @@ fn read(opt: ReadOption) {
         }
     };
 }
+

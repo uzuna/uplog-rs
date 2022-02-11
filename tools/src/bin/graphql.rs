@@ -1,4 +1,4 @@
-use std::str::FromStr;
+
 
 use actix_cors::Cors;
 use actix_http::http::header;
@@ -6,12 +6,12 @@ use actix_web::web::Data;
 use actix_web::{guard, web, App, HttpResponse, HttpServer, Result};
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql::{
-    scalar, EmptyMutation, EmptySubscription, Enum, InputObject, Object, Scalar, ScalarType,
+    scalar, EmptyMutation, EmptySubscription, Enum, InputObject, Object,
     Schema, SimpleObject,
 };
 use async_graphql_actix_web::{Request, Response};
-use chrono::{DateTime, Utc};
-use log::info;
+use chrono::{Utc};
+
 use serde::{Deserialize, Serialize};
 use uplog::KV;
 
@@ -80,17 +80,7 @@ impl KeyValueType {
 }
 
 #[derive(Debug)]
-struct Query {
-    data_dir: String,
-}
-
-impl Default for Query {
-    fn default() -> Self {
-        Self {
-            data_dir: String::from("tempdb"),
-        }
-    }
-}
+struct Query;
 
 #[Object]
 impl Query {
@@ -131,7 +121,7 @@ impl Query {
         }
         sum
     }
-    async fn dummys(&self, start: usize, len: usize) -> PageOfDummys {
+    async fn dummys(&self, start: usize, _len: usize) -> PageOfDummys {
         let data = vec![
             Dummy::default(),
             Dummy {
@@ -170,7 +160,7 @@ async fn index_playground() -> Result<HttpResponse> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let schema = Schema::build(Query::default(), EmptyMutation, EmptySubscription).finish();
+    let schema = Schema::build(Query, EmptyMutation, EmptySubscription).finish();
 
     println!("Playground: http://localhost:8000");
 

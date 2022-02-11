@@ -75,7 +75,7 @@ mod tests {
 
         // make testdata
         let mut writer = CBORSequenceWriter::new(&file_path).unwrap();
-        for i in 0..10 {
+        for i in 0..10_u8 {
             let r = devlog!(Level::Info, "cat", &format!("nyan {}", i), "number", i);
             writer.push(&r)?;
         }
@@ -87,7 +87,7 @@ mod tests {
         for start in 0..10 {
             let data = reader.read_at(start, 10)?;
             assert_eq!(10 - start, data.len());
-            if let Some(Value::U64(ref v)) = data[0].key_values().unwrap().get("number") {
+            if let Some(Value::U64(ref v)) = data[0].record.key_values().unwrap().get("number") {
                 assert_eq!(start as u64, *v);
             }
         }
