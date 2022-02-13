@@ -1,0 +1,51 @@
+# Directs the executor to query only when the field exists.
+directive @ifdef on FIELD
+
+scalar DateTime
+
+scalar Duration
+
+type KeyValue {
+  json: String!
+}
+
+enum LogLevel {
+  TRACE
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+type LogRecord {
+  id: Int!
+  record: RecordObject!
+}
+
+type Query {
+  storages: [SessionViewInfo!]!
+  storageReadAt(vars: ReadAtVars!): [LogRecord!]!
+}
+
+input ReadAtVars {
+  name: String!
+  start: Int
+  length: Int
+}
+
+type RecordObject {
+  level: LogLevel!
+  elapsed: Duration!
+  category: String!
+  message: String!
+  modulePath: String
+  file: String
+  line: Int
+  kv: KeyValue
+}
+
+type SessionViewInfo {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+}

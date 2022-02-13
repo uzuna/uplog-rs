@@ -1,0 +1,28 @@
+query getStorages{
+  storages {
+    createdAt
+    updatedAt
+    name
+  }
+}
+query getRecords($name: String!, $start: Int!, $length: Int = 100){
+  storageReadAt(vars: {
+    name: $name,
+    start: $start,
+    length: $length,
+  }) {
+    id
+    record {
+      level
+      elapsed
+      category
+      message
+      modulePath
+      line
+      file
+      kv {
+        json
+      }
+    }
+  }
+}

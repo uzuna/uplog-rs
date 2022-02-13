@@ -201,7 +201,7 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                         .to(webapi::index_playground),
                 )
                 .service(
-                    actix_files::Files::new("/view", "./view/")
+                    actix_files::Files::new("/", "./view/")
                         .prefer_utf8(true)
                         .index_file("index.html"),
                 )
