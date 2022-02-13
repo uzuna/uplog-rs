@@ -16,6 +16,7 @@ actix-web-actors = "3.0.0"
 async-graphql = "2.11.0"
 async-graphql-actix-web = "2.11.0"
 chrono = "0.4.19"
+dirs = "4.0.0"
 env_logger = "0.8.3"
 futures = "0.3.17"
 log = "0.4.14"
@@ -33,7 +34,3 @@ tempdir = "0.3.7"
 [[bin]]
 name = "main"
 path = "src/bin/main.rs" 
-
-[[bin]]
-name = "graphql"
-path = "src/bin/graphql.rs" 

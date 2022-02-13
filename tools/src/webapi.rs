@@ -56,11 +56,9 @@ pub struct Query {
     storage: Storage,
 }
 
-impl Default for Query {
-    fn default() -> Self {
-        Self {
-            storage: Storage::new(String::from("tempdb")).unwrap(),
-        }
+impl Query {
+    pub fn new(storage: Storage) -> Self {
+        Self{storage}
     }
 }
 

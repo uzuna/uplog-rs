@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use actix::prelude::*;
 
@@ -67,15 +70,28 @@ struct ServerOpt {
     /// listen port
     #[structopt(long, short, default_value = "8040")]
     port: u16,
-    #[structopt(long, short, default_value = "tempdb", name = "DATA_DIR")]
+    #[structopt(long, short, default_value = "~/uplog", name = "DATA_DIR")]
     data_dir: String,
+}
+
+impl ServerOpt {
+    fn get_data_dir(&self) -> Option<PathBuf> {
+        if self.data_dir.is_empty() {
+            return None;
+        }
+        if self.data_dir.starts_with("~/") {
+            let data_local_dir = dirs::data_local_dir()?;
+            Some(data_local_dir.join(&self.data_dir[2..]))
+        } else {
+            Some(PathBuf::from(&self.data_dir))
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, StructOpt)]
 struct DevOpt {
     #[structopt(
         long,
-        short,
         default_value = "localhost",
         help = "connection host",
         name = "HOST"
@@ -132,23 +148,24 @@ fn main() {
 
 struct ServerOption {
     port: u16,
-    data_dir: String,
+    data_dir: PathBuf,
 }
 
 impl From<ServerOpt> for ServerOption {
     fn from(x: ServerOpt) -> Self {
         Self {
             port: x.port,
-            data_dir: x.data_dir,
+            data_dir: x.get_data_dir().expect("not found user local data dir"),
         }
     }
 }
 
 fn server(opt: ServerOption) -> std::io::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", opt.port);
-    let storage = uplog_tools::Storage::new(opt.data_dir)?;
+    let storage = uplog_tools::Storage::new(&opt.data_dir)?;
+    info!("data store in [{}]", opt.data_dir.to_string_lossy());
     let mut rt = actix_web::rt::System::new("server");
-    let schema = Schema::build(Query::default(), EmptyMutation, EmptySubscription).finish();
+    let schema = Schema::build(Query::new(storage.clone()), EmptyMutation, EmptySubscription).finish();
 
     rt.block_on(async move {
         // setup storage dir

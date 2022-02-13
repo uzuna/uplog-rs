@@ -119,7 +119,7 @@ struct DurationScalar(f64);
 scalar!(DurationScalar, "Duration");
 
 /// ログファイルの配置を管理する
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Storage {
     /// 保存先ルート
     dir: PathBuf,
