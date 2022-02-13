@@ -1,14 +1,29 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use actix::prelude::*;
-use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+
+use actix_cors::Cors;
+use actix_http::http::header;
+use actix_web::{
+    guard,
+    web::{self, Data},
+    App, Error, HttpRequest, HttpResponse, HttpServer,
+};
 use actix_web_actors::ws;
+use async_graphql::{EmptyMutation, EmptySubscription, Schema};
 use env_logger::Env;
 use log::{debug, error, info};
 use serde_cbor::{to_vec, Deserializer};
 use structopt::StructOpt;
-use uplog::Record;
-use uplog_tools::{actor::StorageActor, Storage};
+use uplog::{Record, WS_PATH};
+use uplog_tools::{
+    actor::StorageActor,
+    webapi::{self, Query},
+    Storage,
+};
 use uuid::Uuid;
 
 // Handle http request
@@ -17,7 +32,13 @@ async fn ws_index(
     stream: web::Payload,
     srv: web::Data<Addr<StorageActor>>,
 ) -> Result<HttpResponse, Error> {
-    let actor = uplog_tools::actor::WsConn::new(Uuid::new_v4(), srv.get_ref().clone().recipient());
+    let ip_addr: String = req
+        .connection_info()
+        .realip_remote_addr()
+        .map(|x| String::from(x))
+        .unwrap_or_else(|| String::from("unknown"));
+    let actor =
+        uplog_tools::actor::WsConn::new(Uuid::new_v4(), ip_addr, srv.get_ref().clone().recipient());
     let mut res = ws::handshake(&req)?;
     // デフォルトでは64KBのペイロードのため拡張する
     let codec = actix_http::ws::Codec::new().max_size(uplog::DEFAULT_BUFFER_SIZE);
@@ -49,15 +70,42 @@ struct ServerOpt {
     /// listen port
     #[structopt(long, short, default_value = "8040")]
     port: u16,
-    #[structopt(long, short, default_value = "tempdb", name = "DATA_DIR")]
+    /// uplog database directory
+    #[structopt(long, short, default_value = "~/uplog", name = "DATA_DIR")]
     data_dir: String,
+    /// webview static file directory
+    #[structopt(long, default_value = "./view", name = "VIEW_DIR")]
+    view_dir: String,
+}
+
+impl ServerOpt {
+    fn get_data_dir(&self) -> Option<PathBuf> {
+        if self.data_dir.is_empty() {
+            return None;
+        }
+        if self.data_dir.starts_with("~/") {
+            let data_local_dir = dirs::data_local_dir()?;
+            Some(data_local_dir.join(&self.data_dir[2..]))
+        } else {
+            Some(PathBuf::from(&self.data_dir))
+        }
+    }
+
+    fn get_view_dir(&self) -> Option<PathBuf> {
+        let path = PathBuf::from(&self.view_dir);
+        println!("view dir {:?}", &path);
+        if path.exists() {
+            Some(path)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, StructOpt)]
 struct DevOpt {
     #[structopt(
         long,
-        short,
         default_value = "localhost",
         help = "connection host",
         name = "HOST"
@@ -114,22 +162,31 @@ fn main() {
 
 struct ServerOption {
     port: u16,
-    data_dir: String,
+    data_dir: PathBuf,
+    view_dir: PathBuf,
 }
 
 impl From<ServerOpt> for ServerOption {
     fn from(x: ServerOpt) -> Self {
         Self {
             port: x.port,
-            data_dir: x.data_dir,
+            data_dir: x.get_data_dir().expect("not found user local data dir"),
+            view_dir: x.get_view_dir().expect("not found webview file dir"),
         }
     }
 }
 
 fn server(opt: ServerOption) -> std::io::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", opt.port);
-    let storage = uplog_tools::Storage::new(opt.data_dir)?;
+    let storage = uplog_tools::Storage::new(&opt.data_dir)?;
+    info!("data store in [{}]", opt.data_dir.to_string_lossy());
     let mut rt = actix_web::rt::System::new("server");
+    let schema = Schema::build(
+        Query::new(storage.clone()),
+        EmptyMutation,
+        EmptySubscription,
+    )
+    .finish();
 
     rt.block_on(async move {
         // setup storage dir
@@ -138,12 +195,37 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
 
         info!("listen at {}", &bind_addr);
         HttpServer::new(move || {
+            let cors = Cors::default()
+                .allowed_origin_fn(|_origin, _req_head| true)
+                .allowed_methods(vec!["GET", "POST"])
+                .allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
+                .allowed_header(header::CONTENT_TYPE)
+                .supports_credentials()
+                .max_age(3600);
             App::new()
+                .wrap(cors)
                 // enable logger
-                .wrap(middleware::Logger::default())
-                // websocket route
-                .service(web::resource("/").route(web::get().to(ws_index)))
+                // .wrap(middleware::Logger::default())
                 .data(storage_addr.clone())
+                // websocket route
+                .service(web::resource(WS_PATH).route(web::get().to(ws_index)))
+                // graphql
+                .app_data(Data::new(schema.clone()))
+                .service(
+                    web::resource("/graphql")
+                        .guard(guard::Post())
+                        .to(webapi::index),
+                )
+                .service(
+                    web::resource("/graphql")
+                        .guard(guard::Get())
+                        .to(webapi::index_playground),
+                )
+                .service(
+                    actix_files::Files::new("/", &opt.view_dir)
+                        .prefer_utf8(true)
+                        .index_file("index.html"),
+                )
         })
         .bind(bind_addr)
         .unwrap()
@@ -163,7 +245,7 @@ struct DevOption {
 
 impl DevOption {
     fn addr(&self) -> String {
-        format!("ws://{}:{}/", self.host, self.port)
+        format!("ws://{}:{}{}", self.host, self.port, WS_PATH)
     }
 }
 

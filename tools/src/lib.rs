@@ -1,4 +1,6 @@
 pub mod actor;
+mod reader;
+pub mod webapi;
 mod writer;
 
 use std::{
@@ -8,10 +10,116 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use async_graphql::{scalar, Enum, Object};
 use chrono::{DateTime, Utc};
 use log::debug;
+use serde::{Deserialize, Serialize};
+use uplog::{Level, Record, KV};
+
+#[derive(Debug, Serialize)]
+pub struct LogRecord {
+    id: usize,
+    record: Record,
+}
+
+impl LogRecord {
+    pub fn new(id: usize, record: Record) -> Self {
+        Self { id, record }
+    }
+}
+
+#[Object]
+impl LogRecord {
+    async fn id(&self) -> usize {
+        self.id
+    }
+    async fn record<'a>(&'a self) -> RecordObject<'a> {
+        RecordObject(&self.record)
+    }
+}
+
+struct RecordObject<'record>(&'record Record);
+
+#[Object]
+impl<'record> RecordObject<'record> {
+    async fn level(&self) -> LogLevel {
+        self.0.metadata.level().into()
+    }
+    async fn elapsed(&self) -> DurationScalar {
+        DurationScalar(self.0.elapsed.as_secs_f64())
+    }
+    async fn category(&self) -> &str {
+        &self.0.category
+    }
+    async fn message(&self) -> &str {
+        &self.0.message
+    }
+    async fn module_path(&self) -> Option<&str> {
+        if let Some(ref x) = self.0.module_path {
+            Some(x)
+        } else {
+            None
+        }
+    }
+    async fn file(&self) -> Option<&str> {
+        if let Some(ref x) = self.0.file {
+            Some(x)
+        } else {
+            None
+        }
+    }
+    async fn line(&self) -> Option<&u32> {
+        if let Some(ref x) = self.0.line {
+            Some(x)
+        } else {
+            None
+        }
+    }
+    async fn kv(&self) -> Option<KeyValue<'record>> {
+        if let Some(ref kv) = self.0.kv {
+            return Some(KeyValue(kv));
+        }
+        None
+    }
+}
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+impl From<Level> for LogLevel {
+    fn from(x: Level) -> Self {
+        match x {
+            Level::Trace => Self::Trace,
+            Level::Debug => Self::Debug,
+            Level::Info => Self::Info,
+            Level::Warn => Self::Warn,
+            Level::Error => Self::Error,
+        }
+    }
+}
+
+struct KeyValue<'record>(&'record KV);
+
+#[Object]
+impl<'record> KeyValue<'record> {
+    async fn json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&self.0)
+    }
+}
+
+// 自力で実装しなくてもserdeをかぶせたらいい感じにしてくれる
+#[derive(Debug, Serialize, Deserialize)]
+struct DurationScalar(f64);
+scalar!(DurationScalar, "Duration");
 
 /// ログファイルの配置を管理する
+#[derive(Debug, Clone)]
 pub struct Storage {
     /// 保存先ルート
     dir: PathBuf,
@@ -75,10 +183,11 @@ impl Drop for Session {
     }
 }
 
+#[derive(Debug)]
 pub struct SessionInfo {
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    path: PathBuf,
+    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) updated_at: DateTime<Utc>,
+    pub(crate) path: PathBuf,
 }
 
 impl Display for SessionInfo {
