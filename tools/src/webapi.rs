@@ -58,7 +58,7 @@ pub struct Query {
 
 impl Query {
     pub fn new(storage: Storage) -> Self {
-        Self{storage}
+        Self { storage }
     }
 }
 

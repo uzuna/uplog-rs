@@ -14,7 +14,7 @@ use url::Url;
 use crate::{
     buffer::{SwapBufWriter, SwapBuffer},
     logger::{set_boxed_logger, SetLoggerError},
-    session_init, Log, MetadataBorrow, RecordBorrow,
+    session_init, Log, MetadataBorrow, RecordBorrow, WS_PATH,
 };
 
 #[allow(dead_code)]
@@ -201,7 +201,7 @@ impl<'b> Builder<'b> {
             true => "wss",
             false => "ws",
         };
-        let addr = format!("{}:/{}:{}", protocol, self.host, self.port);
+        let addr = format!("{}://{}:{}{}", protocol, self.host, self.port, WS_PATH);
         Url::parse(&addr).expect("failed to parse url")
     }
 

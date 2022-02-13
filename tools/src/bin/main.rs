@@ -18,7 +18,7 @@ use env_logger::Env;
 use log::{debug, error, info};
 use serde_cbor::{to_vec, Deserializer};
 use structopt::StructOpt;
-use uplog::Record;
+use uplog::{Record, WS_PATH};
 use uplog_tools::{
     actor::StorageActor,
     webapi::{self, Query},
@@ -70,8 +70,12 @@ struct ServerOpt {
     /// listen port
     #[structopt(long, short, default_value = "8040")]
     port: u16,
+    /// uplog database directory
     #[structopt(long, short, default_value = "~/uplog", name = "DATA_DIR")]
     data_dir: String,
+    /// webview static file directory
+    #[structopt(long, default_value = "./view", name = "VIEW_DIR")]
+    view_dir: String,
 }
 
 impl ServerOpt {
@@ -84,6 +88,16 @@ impl ServerOpt {
             Some(data_local_dir.join(&self.data_dir[2..]))
         } else {
             Some(PathBuf::from(&self.data_dir))
+        }
+    }
+
+    fn get_view_dir(&self) -> Option<PathBuf> {
+        let path = PathBuf::from(&self.view_dir);
+        println!("view dir {:?}", &path);
+        if path.exists() {
+            Some(path)
+        } else {
+            None
         }
     }
 }
@@ -149,6 +163,7 @@ fn main() {
 struct ServerOption {
     port: u16,
     data_dir: PathBuf,
+    view_dir: PathBuf,
 }
 
 impl From<ServerOpt> for ServerOption {
@@ -156,6 +171,7 @@ impl From<ServerOpt> for ServerOption {
         Self {
             port: x.port,
             data_dir: x.get_data_dir().expect("not found user local data dir"),
+            view_dir: x.get_view_dir().expect("not found webview file dir"),
         }
     }
 }
@@ -165,7 +181,12 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
     let storage = uplog_tools::Storage::new(&opt.data_dir)?;
     info!("data store in [{}]", opt.data_dir.to_string_lossy());
     let mut rt = actix_web::rt::System::new("server");
-    let schema = Schema::build(Query::new(storage.clone()), EmptyMutation, EmptySubscription).finish();
+    let schema = Schema::build(
+        Query::new(storage.clone()),
+        EmptyMutation,
+        EmptySubscription,
+    )
+    .finish();
 
     rt.block_on(async move {
         // setup storage dir
@@ -187,7 +208,7 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                 // .wrap(middleware::Logger::default())
                 .data(storage_addr.clone())
                 // websocket route
-                .service(web::resource("/").route(web::get().to(ws_index)))
+                .service(web::resource(WS_PATH).route(web::get().to(ws_index)))
                 // graphql
                 .app_data(Data::new(schema.clone()))
                 .service(
@@ -201,7 +222,7 @@ fn server(opt: ServerOption) -> std::io::Result<()> {
                         .to(webapi::index_playground),
                 )
                 .service(
-                    actix_files::Files::new("/", "./view/")
+                    actix_files::Files::new("/", &opt.view_dir)
                         .prefer_utf8(true)
                         .index_file("index.html"),
                 )
@@ -224,7 +245,7 @@ struct DevOption {
 
 impl DevOption {
     fn addr(&self) -> String {
-        format!("ws://{}:{}/", self.host, self.port)
+        format!("ws://{}:{}{}", self.host, self.port, WS_PATH)
     }
 }
 

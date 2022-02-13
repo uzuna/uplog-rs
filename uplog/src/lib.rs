@@ -10,6 +10,8 @@ pub mod error;
 mod kv;
 mod logger;
 mod session;
+/// recording path
+pub const WS_PATH: &str = "/logger";
 
 pub use {
     client::{
